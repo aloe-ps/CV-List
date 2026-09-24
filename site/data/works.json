@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "works": [
+    {
+      "id": "MQaIQ-U6oSk",
+      "title": "JapEn 17th │ PenSpinning",
+      "author": "MEL",
+      "performers": [],
+      "music": [
+        {
+          "title": "Finale",
+          "url": "https://soundcloud.com/akiza1004/akiza-finale",
+          "composer": "Akiza"
+        }
+      ],
+      "communities": ["JEB"],
+      "genre": "CV",
+      "youtube": "https://youtu.be/MQaIQ-U6oSk",
+      "added": "2021-12-25"
+    }
+  ]
+}

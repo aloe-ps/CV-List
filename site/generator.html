@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>JSONジェネレーター | CV-LIST</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%236750a4' d='M4 5h16v14H4z'/%3E%3C/svg%3E" />
+  <script>
+    (function () {
+      var t = null;
+      try { t = localStorage.getItem("theme"); } catch (e) {}
+      if (t !== "light" && t !== "dark") {
+        t = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+      document.documentElement.setAttribute("data-theme", t);
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/css/style.css?v=2" />
+</head>
+<body>
+
+  <header class="app-bar" id="app-bar" data-role="app-bar">
+    <button class="icon-btn" onclick="window.location.href='index.html'" aria-label="一覧に戻る">
+      <span class="material-symbols-outlined">arrow_back</span>
+    </button>
+    <div class="app-bar__title-area">
+      <div class="app-bar__headline">JSONジェネレーター</div>
+      <div class="app-bar__subtitle hide-sm">作品データを作成してPull Requestを送る</div>
+    </div>
+    <div class="app-bar__actions">
+      <button class="icon-btn" data-theme-toggle aria-label="テーマ切り替え">
+        <span class="material-symbols-outlined" data-theme-icon>dark_mode</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="container container--narrow">
+
+    <section class="gen-card" style="margin-top:20px">
+      <div class="gen-card__title">
+        <span class="material-symbols-outlined">help</span>
+        Pull Requestの送り方
+      </div>
+      <div class="steps">
+        <div class="step">
+          <span class="step__num">1</span>
+          <span class="step__body">下のフォームに作品情報を入力すると、右側のJSONが自動生成されます。</span>
+        </div>
+        <div class="step">
+          <span class="step__num">2</span>
+          <span class="step__body">「JSONをコピー」でデータをクリップボードにコピーします。</span>
+        </div>
+        <div class="step">
+          <span class="step__num">3</span>
+          <span class="step__body">「GitHubで編集」を開き、リポジトリの <code id="step-datafile">site/data/works.json</code> に貼り付け、Pull Requestを送ってください。</span>
+        </div>
+      </div>
+    </section>
+
+    <div class="gen-layout">
+
+      <div class="gen-form">
+
+        <div class="gen-card">
+          <div class="gen-card__title">
+            <span class="material-symbols-outlined">movie</span>
+            作品情報
+          </div>
+          <div class="repeater" style="gap:14px">
+
+<label class="field">
+              <span class="field__label type-label-large">タイトル<span class="req">*</span></span>
+              <input class="field__control" id="f-title" type="text" placeholder="例:JapEn 17th" required />
+              <span class="field__error">タイトルは必須です</span>
+            </label>
+
+            <label class="field">
+              <span class="field__label type-label-large">ジャンル</span>
+              <span class="select" style="width:100%">
+                <select class="field__control" id="f-genre" style="height:44px;width:100%">
+                  <option value="">選択してください</option>
+                  <option value="CV">CV</option>
+                  <option value="SV">SV</option>
+                  <option value="PV">PV</option>
+                </select>
+              </span>
+              <span class="field__hint">CV / SV / PV のいずれかを選択</span>
+            </label>
+
+            <label class="field">
+              <span class="field__label type-label-large">作品の概要</span>
+              <textarea class="field__control textarea" id="f-description" placeholder="作品の紹介文（任意）"></textarea>
+            </label>
+
+            <label class="field">
+              <span class="field__label type-label-large">YouTube URL<span class="req">*</span></span>
+              <div class="youtube-row">
+                <input class="field__control" id="f-youtube" type="url" placeholder="https://youtu.be/..." />
+                <button class="btn btn--tonal btn--small" id="auto-fetch-btn" type="button">
+                  <span class="material-symbols-outlined">auto_awesome</span>
+                  自動入力
+                </button>
+              </div>
+              <span class="field__hint" id="youtube-hint">youtu.be / youtube.com のURLを入力。貼り付けるとタイトル・概要・公開日を自動入力します。</span>
+            </label>
+
+            <label class="field">
+              <span class="field__label type-label-large">作者<span class="req">*</span></span>
+              <input class="field__control" id="f-author" type="text" placeholder="例: JapEn Project" />
+            </label>
+
+            <label class="field">
+              <span class="field__label type-label-large">追加日（任意）</span>
+              <input class="field__control" id="f-added" type="date" />
+            </label>
+
+          </div>
+        </div>
+
+        <div class="gen-card">
+          <div class="gen-card__title">
+            <span class="material-symbols-outlined">groups</span>
+            出演者
+          </div>
+          <div class="repeater" id="repeat-performers"></div>
+          <button class="btn btn--tonal btn--small repeater-add" type="button" data-add="performers" style="margin-top:12px">
+            <span class="material-symbols-outlined">add</span>
+            出演者を追加
+          </button>
+        </div>
+
+        <div class="gen-card">
+          <div class="gen-card__title">
+            <span class="material-symbols-outlined">music_note</span>
+            使用楽曲と作曲者
+          </div>
+          <div class="repeater" id="repeat-music"></div>
+          <button class="btn btn--tonal btn--small repeater-add" type="button" data-add="music" style="margin-top:12px">
+            <span class="material-symbols-outlined">add</span>
+            楽曲を追加
+          </button>
+        </div>
+
+        <div class="gen-card">
+          <div class="gen-card__title">
+            <span class="material-symbols-outlined">forum</span>
+            コミュニティ
+          </div>
+          <div class="repeater" id="repeat-communities"></div>
+          <button class="btn btn--tonal btn--small repeater-add" type="button" data-add="communities" style="margin-top:12px">
+            <span class="material-symbols-outlined">add</span>
+            コミュニティを追加
+          </button>
+        </div>
+
+      </div>
+
+      <div class="preview-card">
+        <div class="preview-card__head">
+          <span class="material-symbols-outlined" style="color:var(--md-primary)">data_object</span>
+          <span class="type-title-small">生成されるJSON</span>
+          <span class="chip" id="validity-chip">入力待ち</span>
+        </div>
+
+        <pre class="json-view" id="json-view" aria-live="polite"><code>{}</code></pre>
+
+        <div class="preview-card__actions">
+          <button class="btn btn--filled" id="copy-btn" type="button">
+            <span class="material-symbols-outlined">content_copy</span>
+            JSONをコピー
+          </button>
+          <a class="btn btn--outlined" id="github-btn" href="#" target="_blank" rel="noopener noreferrer">
+            <span class="material-symbols-outlined">edit</span>
+            GitHubで編集
+          </a>
+          <button class="btn btn--text" id="reset-btn" type="button">リセット</button>
+        </div>
+
+        <p class="field__hint" id="github-hint">GitHubで編集 を開いてから、コピーしたJSONを <code>works</code> 配列の末尾に貼り付けて Pull Request を作成してください。</p>
+      </div>
+
+    </div>
+  </main>
+
+  <footer class="footer container">
+    <p>コピーしたデータは <code>site/data/works.json</code> に追加されます。</p>
+  </footer>
+
+  <div class="toast" id="toast" role="status"></div>
+
+  <script src="assets/js/config.js?v=2"></script>
+  <script src="assets/js/works.js?v=2"></script>
+  <script src="assets/js/theme.js?v=2"></script>
+  <script src="assets/js/generator.js?v=2"></script>
+</body>
+</html>

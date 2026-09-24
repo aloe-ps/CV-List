@@ -1,0 +1,14 @@
+{
+  "name": "penspinning-films-list",
+  "version": "1.0.0",
+  "private": true,
+  "description": "",
+  "scripts": {
+    "serve": "npx http-server site -p 8080 -c-1",
+    "deploy:worker": "wrangler deploy --config worker/wrangler.toml"
+  },
+  "devDependencies": {
+    "http-server": "^14.1.1",
+    "wrangler": "^4.138.0"
+  }
+}
