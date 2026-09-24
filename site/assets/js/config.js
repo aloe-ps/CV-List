@@ -2,7 +2,7 @@ var SITE_CONFIG = {
   // GitHub リポジトリ情報（作品データへのPR誘導用）
   owner: "aloe-ps",
   repo: "CV-List",
-  branch: "main",
+  branch: "master",
   dataFile: "site/data/works.json",
   siteTitle: "PENSPINNING-FILMS-LIST",
 
