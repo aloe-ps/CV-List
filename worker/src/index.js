@@ -11,7 +11,7 @@
 //   2. wrangler secret put YOUTUBE_API_KEY     # YouTube Data API v3 のキー
 //   3. wrangler secret put ALLOWED_ORIGIN      # 例: https://<user>.github.io
 //      （設定しない場合は全オリジン許可。ただし許可を推奨）
-//   4. site/assets/js/config.js の youtubeMetadataEndpoint を
+//   4. docs/assets/js/config.js の youtubeMetadataEndpoint を
 //      "https://<your-worker>.workers.dev" に設定
 //
 // 呼び出し: GET /?url=https://youtu.be/<VIDEO_ID>

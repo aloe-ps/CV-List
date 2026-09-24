@@ -383,7 +383,7 @@
           showToast("タイトルを自動入力しました（概要・公開日は未設定）");
           if (els.youtubeHint && !autofetchBtnHint && !metadataEndpoint()) {
             els.youtubeHint.textContent =
-              "概要・公開日も自動入力するには、site/assets/js/config.js の youtubeMetadataEndpoint にプロキシURL（worker/ をデプロイ）を設定してください。APIキーがクライアントに公開されません。";
+              "概要・公開日も自動入力するには、docs/assets/js/config.js の youtubeMetadataEndpoint にプロキシURL（worker/ をデプロイ）を設定してください。APIキーがクライアントに公開されません。";
             autofetchBtnHint = true;
           }
         }
@@ -498,7 +498,7 @@
     var cfg = window.SITE_CONFIG || {};
     var owner = (cfg.owner || "").trim();
     var repo = (cfg.repo || "").trim();
-    var branch = (cfg.branch || "main").trim();
+    var branch = (cfg.branch || "master").trim();
     var dataFile = (cfg.dataFile || "data/works.json").trim();
 
     var btn = els.githubBtn;
@@ -508,7 +508,7 @@
       btn.style.display = "none";
       hint.innerHTML =
         '<span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px">info</span> ' +
-        "GitHubのリポジトリ情報が未設定です。site/assets/js/config.js の owner / repo を設定すると「GitHubで編集」リンクが表示されます。";
+        "GitHubのリポジトリ情報が未設定です。docs/assets/js/config.js の owner / repo を設定すると「GitHubで編集」リンクが表示されます。";
       hint.style.display = "block";
       return;
     }

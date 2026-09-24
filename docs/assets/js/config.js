@@ -3,7 +3,7 @@ var SITE_CONFIG = {
   owner: "aloe-ps",
   repo: "CV-List",
   branch: "master",
-  dataFile: "site/data/works.json",
+  dataFile: "docs/data/works.json",
   siteTitle: "PENSPINNING-FILMS-LIST",
 
   // YouTubeメタデータ取得用プロキシURL（推奨）
