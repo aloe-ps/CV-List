@@ -39,7 +39,7 @@ jobs:
         run: |
           gh pr create \
             --repo "$GH_REPO" \
-            --base develop \
+            --base Develop \
             --head master \
             --title "chore: sync master into develop" \
             --body "## Master → Develop synchronization
