@@ -1,7 +1,14 @@
 (function () {
   var els = {};
-  var editId = null;
+  var workItems = [];
+  var activeWorkKey = null;
+  var expandedWorkKey = null;
+  var nextWorkKey = 1;
   var allWorks = [];
+  var metaCache = {};
+  var issueLink = null;
+  var issueBase = "";
+  var toastTimer = null;
 
   function esc(text) {
     return String(text)
@@ -16,7 +23,23 @@
     return '<span class="material-symbols-outlined" aria-hidden="true">' + esc(name) + "</span>";
   }
 
-  /* ------------------------------------------------ Repeaters */
+  function getWork(key) {
+    for (var i = 0; i < workItems.length; i += 1) {
+      if (workItems[i].key === key) return workItems[i];
+    }
+    return null;
+  }
+
+  function getActiveWork() {
+    return getWork(activeWorkKey);
+  }
+
+  function getWorkFromNode(node) {
+    if (!node || !node.closest) return null;
+    var panel = node.closest("[data-work-panel]");
+    if (!panel) return null;
+    return getWork(panel.getAttribute("data-work-key"));
+  }
 
   function performerRow(value) {
     value = value || "";
@@ -63,19 +86,148 @@
     );
   }
 
-  function addPerformer(value) {
-    els.performers.insertAdjacentHTML("beforeend", performerRow(value));
+  function addPerformer(work, value) {
+    if (!work || !work.elements.performers) return;
+    work.elements.performers.insertAdjacentHTML("beforeend", performerRow(value));
   }
 
-  function addMusic(m) {
-    els.music.insertAdjacentHTML("beforeend", musicRow(m));
+  function addMusic(work, m) {
+    if (!work || !work.elements.music) return;
+    work.elements.music.insertAdjacentHTML("beforeend", musicRow(m));
   }
 
-  function addCommunity(value) {
-    els.communities.insertAdjacentHTML("beforeend", communityRow(value));
+  function addCommunity(work, value) {
+    if (!work || !work.elements.communities) return;
+    work.elements.communities.insertAdjacentHTML("beforeend", communityRow(value));
   }
 
-  /* ------------------------------------------------ Collect */
+  function clearRepeaters(work) {
+    if (!work) return;
+    work.elements.performers.innerHTML = "";
+    work.elements.music.innerHTML = "";
+    work.elements.communities.innerHTML = "";
+  }
+
+  function getFieldElements(root) {
+    return {
+      title: root.querySelector('[data-field="title"]'),
+      genre: root.querySelector('[data-field="genre"]'),
+      description: root.querySelector('[data-field="description"]'),
+      youtube: root.querySelector('[data-field="youtube"]'),
+      author: root.querySelector('[data-field="author"]'),
+      added: root.querySelector('[data-field="added"]'),
+      performers: root.querySelector('[data-repeater="performers"]'),
+      music: root.querySelector('[data-repeater="music"]'),
+      communities: root.querySelector('[data-repeater="communities"]'),
+      autofetchBtn: root.querySelector("[data-fetch]"),
+      youtubeHint: root.querySelector('[data-role="youtube-hint"]'),
+      removeBtn: root.querySelector("[data-remove-work]")
+    };
+  }
+
+  function createTab(key) {
+    var tab = document.createElement("button");
+    tab.className = "work-tab";
+    tab.type = "button";
+    tab.id = "work-tab-" + key;
+    tab.setAttribute("role", "tab");
+    tab.setAttribute("aria-selected", "false");
+    tab.setAttribute("aria-expanded", "false");
+    tab.setAttribute("aria-controls", "work-panel-" + key);
+    tab.tabIndex = -1;
+    tab.setAttribute("data-work-tab", key);
+
+    var marker = document.createElement("span");
+    marker.className = "work-tab__marker";
+    marker.setAttribute("aria-hidden", "true");
+    marker.textContent = ">";
+    var label = document.createElement("span");
+    label.className = "work-tab__label";
+    var status = document.createElement("span");
+    status.className = "work-tab__status";
+    status.setAttribute("aria-hidden", "true");
+    tab.appendChild(marker);
+    tab.appendChild(label);
+    tab.appendChild(status);
+    return { tab: tab, label: label, status: status };
+  }
+
+  function createWork(data, editId) {
+    var key = String(nextWorkKey);
+    nextWorkKey += 1;
+
+    var root = els.template.content.firstElementChild.cloneNode(true);
+    root.id = "work-panel-" + key;
+    root.setAttribute("data-work-key", key);
+    root.setAttribute("aria-labelledby", "work-tab-" + key);
+    root.hidden = true;
+
+    var tabParts = createTab(key);
+    var work = {
+      key: key,
+      root: root,
+      tab: tabParts.tab,
+      tabLabel: tabParts.label,
+      tabStatus: tabParts.status,
+      elements: getFieldElements(root),
+      editId: editId || null,
+      autoFillTimer: null,
+      requestToken: 0,
+      fetching: false,
+      metadataHintShown: false,
+      dirty: false
+    };
+
+    var fields = ["title", "genre", "description", "youtube", "author", "added"];
+    fields.forEach(function (name) {
+      if (work.elements[name]) {
+        work.elements[name].id = key === "1" ? "f-" + name : "work-" + key + "-" + name;
+      }
+    });
+    if (key === "1") {
+      if (work.elements.autofetchBtn) work.elements.autofetchBtn.id = "auto-fetch-btn";
+      if (work.elements.youtubeHint) work.elements.youtubeHint.id = "youtube-hint";
+      if (work.elements.performers) work.elements.performers.id = "repeat-performers";
+      if (work.elements.music) work.elements.music.id = "repeat-music";
+      if (work.elements.communities) work.elements.communities.id = "repeat-communities";
+    }
+
+    els.panels.appendChild(root);
+    els.tabList.appendChild(work.tab);
+    workItems.push(work);
+    prefill(work, data || {});
+    return work;
+  }
+
+  function prefill(work, data) {
+    if (!work) return;
+    var fields = work.elements;
+    fields.title.value = data.title || "";
+    fields.genre.value = data.genre || "";
+    fields.description.value = data.description || "";
+    fields.youtube.value = data.youtube || "";
+    fields.author.value = data.author || "";
+    fields.added.value = data.added || "";
+
+    clearRepeaters(work);
+    var performers = Array.isArray(data.performers) ? data.performers : [];
+    var music = Array.isArray(data.music) ? data.music : [];
+    var communities = Array.isArray(data.communities) ? data.communities : [];
+
+    performers.forEach(function (value) {
+      addPerformer(work, value);
+    });
+    music.forEach(function (value) {
+      addMusic(work, value);
+    });
+    communities.forEach(function (value) {
+      addCommunity(work, value);
+    });
+
+    if (!performers.length) addPerformer(work);
+    if (!music.length) addMusic(work);
+    if (!communities.length) addCommunity(work);
+  }
 
   function slugify(text) {
     var s = String(text || "")
@@ -90,6 +242,7 @@
 
   function collectRows(containerEl, rowClass) {
     var out = [];
+    if (!containerEl) return out;
     containerEl.querySelectorAll(rowClass).forEach(function (row) {
       var val = row.querySelector(".rp-input");
       if (val && String(val.value).trim()) out.push(String(val.value).trim());
@@ -97,9 +250,10 @@
     return out;
   }
 
-  function collectMusic() {
+  function collectMusic(work) {
     var out = [];
-    els.music.querySelectorAll(".repeater-row--multi").forEach(function (row) {
+    if (!work || !work.elements.music) return out;
+    work.elements.music.querySelectorAll(".repeater-row--multi").forEach(function (row) {
       var title = (row.querySelector(".rp-title") || {}).value || "";
       var url = (row.querySelector(".rp-url") || {}).value || "";
       var composer = (row.querySelector(".rp-composer") || {}).value || "";
@@ -114,23 +268,24 @@
     return out;
   }
 
-  function collect() {
-    var youtube = String(els.youtube.value || "").trim();
-    var title = String(els.title.value || "").trim();
-    var author = String(els.author.value || "").trim();
-    var description = String(els.description.value || "").trim();
-    var added = String(els.added.value || "").trim();
-
+  function collectWork(work) {
+    if (!work) return null;
+    var fields = work.elements;
+    var youtube = String(fields.youtube.value || "").trim();
+    var title = String(fields.title.value || "").trim();
+    var author = String(fields.author.value || "").trim();
+    var description = String(fields.description.value || "").trim();
+    var added = String(fields.added.value || "").trim();
     var yid = WORKS.parseYouTubeId(youtube);
     var obj = {
-      id: yid || slugify(title),
+      id: work.editId || yid || slugify(title),
       title: title,
       author: author,
-      performers: collectRows(els.performers, ".repeater-row"),
-      music: collectMusic(),
-      communities: collectRows(els.communities, ".repeater-row")
+      performers: collectRows(fields.performers, ".repeater-row"),
+      music: collectMusic(work),
+      communities: collectRows(fields.communities, ".repeater-row")
     };
-    var genre = String(els.genre.value || "").trim();
+    var genre = String(fields.genre.value || "").trim();
     if (genre) obj.genre = genre;
     if (description) obj.description = description;
     if (youtube) obj.youtube = youtube;
@@ -143,13 +298,66 @@
     if (!obj.title) missing.push("タイトル");
     if (!obj.author) missing.push("作者");
     if (!obj.youtube) missing.push("YouTube URL");
+    else if (!WORKS.parseYouTubeId(obj.youtube)) missing.push("YouTube URL");
     return missing;
   }
 
-  /* ------------------------------------------------ JSON highlight */
+  function hasIdentity(obj) {
+    return Boolean(obj.title || obj.youtube);
+  }
 
-  function highlight(obj) {
-    var json = JSON.stringify(obj, null, 2);
+  function collectEntries() {
+    var entries = workItems.map(function (work) {
+      var obj = collectWork(work);
+      return { work: work, obj: obj, missing: validate(obj), duplicate: false };
+    });
+
+    entries.forEach(function (entry) {
+      if (!hasIdentity(entry.obj)) return;
+      var existing = allWorks.some(function (work) {
+        return work.id === entry.obj.id && work.id !== entry.work.editId;
+      });
+      var batch = entries.some(function (other) {
+        return (
+          other !== entry &&
+          hasIdentity(other.obj) &&
+          other.obj.id === entry.obj.id
+        );
+      });
+      entry.duplicate = existing || batch;
+    });
+
+    return entries;
+  }
+
+  function getOutput(entries) {
+    var objects = entries.map(function (entry) {
+      return entry.obj;
+    });
+    return objects.length === 1 ? objects[0] : objects;
+  }
+
+  function getWorkLabel(work) {
+    var title = String(work.elements.title.value || "").trim();
+    if (title) return title;
+    return "作品" + (workItems.indexOf(work) + 1);
+  }
+
+  function renderTab(work, entry) {
+    var index = workItems.indexOf(work) + 1;
+    var label = getWorkLabel(work);
+    var state = entry.missing.length ? "missing" : entry.duplicate ? "duplicate" : "ok";
+    work.tabLabel.textContent = label;
+    work.tab.setAttribute("data-state", state);
+    work.tab.setAttribute(
+      "aria-label",
+      index + "作品目: " + label + (state === "ok" ? "" : "（要確認）")
+    );
+    work.tabStatus.textContent = state === "ok" ? "" : "!";
+  }
+
+  function highlight(value) {
+    var json = JSON.stringify(value, null, 2);
     var out = esc(json);
     out = out
       .replace(/(&quot;(?:\\.|[^&])*?&quot;)(\s*:)?/g, function (m, str, colon) {
@@ -160,45 +368,115 @@
     return out;
   }
 
-  /* ------------------------------------------------ Preview / validation */
-
-  function update() {
-    var obj = collect();
-    var missing = validate(obj);
-
-    els.jsonView.textContent = "";
-    var code = document.createElement("code");
-    code.innerHTML = highlight(obj);
-    els.jsonView.appendChild(code);
-
-    var duplicate = !editId && allWorks.some(function (w) {
-      return w.id === obj.id;
-    });
-
-    var chip = els.validity;
-    if (missing.length) {
-      chip.textContent = "必須項目が未入力";
-      chip.classList.add("chip--fill");
+  function setValidityChip(chip, text, kind) {
+    chip.textContent = text;
+    chip.classList.add("chip--fill");
+    if (kind === "missing") {
       chip.style.backgroundColor = "var(--md-error-container)";
       chip.style.color = "var(--md-on-error-container)";
-    } else if (duplicate) {
-      chip.textContent = "既存作品と同じID";
-      chip.classList.add("chip--fill");
+    } else if (kind === "duplicate") {
       chip.style.backgroundColor = "var(--md-tertiary-container)";
       chip.style.color = "var(--md-on-tertiary-container)";
     } else {
-      chip.textContent = "OK";
-      chip.classList.add("chip--fill");
       chip.style.backgroundColor = "var(--md-primary-container)";
       chip.style.color = "var(--md-on-primary-container)";
     }
-    return { obj: obj, missing: missing };
   }
 
-  /* ------------------------------------------------ YouTube metadata */
+  function update() {
+    if (!els.jsonView) return null;
+    var entries = collectEntries();
+    var output = getOutput(entries);
+    var missingCount = entries.filter(function (entry) {
+      return entry.missing.length > 0;
+    }).length;
+    var duplicateCount = entries.filter(function (entry) {
+      return entry.duplicate;
+    }).length;
 
-  var metaCache = {};
-  var autofetchBtnHint = false;
+    els.jsonView.textContent = "";
+    var code = document.createElement("code");
+    code.innerHTML = highlight(output);
+    els.jsonView.appendChild(code);
+    els.workCount.textContent = entries.length + "作品";
+
+    entries.forEach(function (entry) {
+      renderTab(entry.work, entry);
+    });
+
+    if (missingCount) {
+      setValidityChip(els.validity, "必須項目が未入力 (" + missingCount + "件)", "missing");
+    } else if (duplicateCount) {
+      setValidityChip(els.validity, "IDが重複しています", "duplicate");
+    } else if (entries.length > 1) {
+      setValidityChip(els.validity, "OK (" + entries.length + "作品)", "ok");
+    } else {
+      setValidityChip(els.validity, "OK", "ok");
+    }
+
+    updateIssueParams();
+    return { entries: entries, output: output, missingCount: missingCount, duplicateCount: duplicateCount };
+  }
+
+  function applyWorkState() {
+    workItems.forEach(function (item) {
+      var selected = item.key === activeWorkKey;
+      var expanded = item.key === expandedWorkKey;
+      item.root.hidden = !expanded;
+      item.tab.classList.toggle("is-active", expanded);
+      item.tab.setAttribute("aria-selected", selected ? "true" : "false");
+      item.tab.setAttribute("aria-expanded", expanded ? "true" : "false");
+      item.tab.tabIndex = selected ? 0 : -1;
+      if (item.elements.removeBtn) {
+        item.elements.removeBtn.disabled = workItems.length === 1;
+        item.elements.removeBtn.setAttribute(
+          "aria-label",
+          selected ? "現在の作品を削除" : "この作品を削除"
+        );
+      }
+    });
+  }
+
+  function activateWork(work, focus) {
+    if (!work) return;
+    activeWorkKey = work.key;
+    expandedWorkKey = work.key;
+    applyWorkState();
+    update();
+    if (focus) work.elements.title.focus();
+  }
+
+  function toggleWork(work) {
+    if (!work) return;
+    activeWorkKey = work.key;
+    expandedWorkKey = expandedWorkKey === work.key ? null : work.key;
+    applyWorkState();
+    update();
+  }
+
+  function addWork() {
+    var work = createWork();
+    activateWork(work, true);
+    showToast("新しい作品フォームを追加しました");
+  }
+
+  function removeWork(work) {
+    if (!work) return;
+    if (workItems.length === 1) {
+      showToast("作品を削除するには、まず別の作品を追加してください");
+      return;
+    }
+    clearTimeout(work.autoFillTimer);
+    work.requestToken += 1;
+    var index = workItems.indexOf(work);
+    if (index < 0) return;
+    workItems.splice(index, 1);
+    work.root.remove();
+    work.tab.remove();
+    var next = workItems[Math.min(index, workItems.length - 1)];
+    activateWork(next, false);
+    showToast("作品を削除しました");
+  }
 
   function metadataEndpoint() {
     return String((window.SITE_CONFIG && window.SITE_CONFIG.youtubeMetadataEndpoint) || "").trim();
@@ -336,67 +614,93 @@
     });
   }
 
-  function fillFromMeta(meta, force) {
+  function isCurrentRequest(work, id, token) {
+    return (
+      getWork(work.key) === work &&
+      work.requestToken === token &&
+      WORKS.parseYouTubeId(work.elements.youtube.value) === id
+    );
+  }
+
+  function fillFromMeta(work, meta, force) {
     function setValue(input, value) {
       if (force || !String(input.value || "").trim()) input.value = value || "";
     }
-    setValue(els.title, meta.title);
-    setValue(els.description, meta.description);
+    setValue(work.elements.title, meta.title);
+    setValue(work.elements.description, meta.description);
     var date = /^\d{4}-\d{2}-\d{2}/.exec(meta.publishedAt || "");
-    if (date && (force || !String(els.added.value || "").trim())) {
-      els.added.value = date[0];
+    if (date && (force || !String(work.elements.added.value || "").trim())) {
+      work.elements.added.value = date[0];
     }
     update();
   }
 
-  function setFetching(on) {
-    var btn = els.autofetchBtn;
+  function setFetching(work, on) {
+    var btn = work.elements.autofetchBtn;
     if (!btn) return;
+    work.fetching = on;
     btn.disabled = on;
-    var icon = btn.querySelector(".material-symbols-outlined");
-    if (icon) {
-      if (on) {
-        icon.textContent = "progress_activity";
-        btn.classList.add("is-spinning");
-      } else {
-        icon.textContent = "auto_awesome";
-        btn.classList.remove("is-spinning");
-      }
+    var btnIcon = btn.querySelector(".material-symbols-outlined");
+    if (!btnIcon) return;
+    if (on) {
+      btnIcon.textContent = "progress_activity";
+      btn.classList.add("is-spinning");
+    } else {
+      btnIcon.textContent = "auto_awesome";
+      btn.classList.remove("is-spinning");
     }
   }
 
-  function fetchAndFill(force) {
-    var id = WORKS.parseYouTubeId(els.youtube.value);
+  function fetchAndFill(work, force) {
+    if (!work) return;
+    clearTimeout(work.autoFillTimer);
+    var id = WORKS.parseYouTubeId(work.elements.youtube.value);
     if (!id) {
       showToast("YouTubeのURLを入力してください");
       return;
     }
-    setFetching(true);
+    var token = ++work.requestToken;
+    setFetching(work, true);
     fetchVideoMeta(id)
       .then(function (meta) {
-        fillFromMeta(meta, !!force);
+        if (!isCurrentRequest(work, id, token)) return;
+        fillFromMeta(work, meta, !!force);
         if (!meta.title) {
           showToast("動画情報を取得できませんでした");
         } else if (meta.description || meta.publishedAt) {
           showToast("タイトル・概要・公開日 を自動入力しました");
         } else {
           showToast("タイトルを自動入力しました（概要・公開日は未設定）");
-          if (els.youtubeHint && !autofetchBtnHint && !metadataEndpoint()) {
-            els.youtubeHint.textContent =
+          if (work.elements.youtubeHint && !work.metadataHintShown && !metadataEndpoint()) {
+            work.elements.youtubeHint.textContent =
               "概要・公開日も自動入力するには、docs/assets/js/config.js の youtubeMetadataEndpoint にプロキシURL（worker/ をデプロイ）を設定してください。APIキーがクライアントに公開されません。";
-            autofetchBtnHint = true;
+            work.metadataHintShown = true;
           }
         }
       })
       .catch(function () {
-        showToast("動画情報を取得できませんでした");
+        if (isCurrentRequest(work, id, token)) showToast("動画情報を取得できませんでした");
       })
       .then(function () {
-        setFetching(false);
+        if (isCurrentRequest(work, id, token)) setFetching(work, false);
       });
   }
 
-  /* ------------------------------------------------ Actions */
+  function invalidateAutofill(work) {
+    clearTimeout(work.autoFillTimer);
+    work.requestToken += 1;
+    if (work.fetching) setFetching(work, false);
+  }
+
+  function scheduleAutofill(work) {
+    if (!work) return;
+    invalidateAutofill(work);
+    work.autoFillTimer = setTimeout(function () {
+      if (getWork(work.key) === work && !String(work.elements.title.value || "").trim()) {
+        fetchAndFill(work, false);
+      }
+    }, 900);
+  }
 
   function copyText(text, done, fail) {
     function fallback() {
@@ -423,12 +727,19 @@
   }
 
   function copyJson() {
-    var obj = collect();
-    var missing = validate(obj);
+    var snapshot = collectEntries();
+    var output = getOutput(snapshot);
+    var missingCount = snapshot.filter(function (entry) {
+      return entry.missing.length > 0;
+    }).length;
     copyText(
-      JSON.stringify(obj, null, 2),
+      JSON.stringify(output, null, 2),
       function () {
-        showToast(missing.length ? "コピーしました（未入力項目に注意）" : "JSONをコピーしました");
+        showToast(
+          missingCount
+            ? "コピーしました（未入力項目に注意）"
+            : "JSONをコピーしました"
+        );
       },
       function () {
         showToast("コピーに失敗しました");
@@ -437,19 +748,13 @@
   }
 
   function reset() {
-    els.title.value = "";
-    els.description.value = "";
-    els.youtube.value = "";
-    els.author.value = "";
-    els.added.value = "";
-    els.genre.value = "";
-    els.performers.innerHTML = "";
-    els.music.innerHTML = "";
-    els.communities.innerHTML = "";
-    addPerformer();
-    addMusic();
-    addCommunity();
+    var work = getActiveWork();
+    if (!work) return;
+    invalidateAutofill(work);
+    work.dirty = true;
+    prefill(work, {});
     update();
+    showToast("現在の作品をリセットしました");
   }
 
   function showEditBanner(w) {
@@ -465,13 +770,11 @@
       esc(w.title) +
       "' の情報を修正しています。生成されたJSONで既存のエントリを置き換える形でPull Requestを作成してください。</p></div>";
     var main = document.querySelector("main");
-    main.insertBefore(banner, main.firstChild);
+    if (main) main.insertBefore(banner, main.firstChild);
   }
 
-  /* ------------------------------------------------ Toast */
-
-  var toastTimer = null;
   function showToast(msg) {
+    if (!els.toast) return;
     els.toast.innerHTML = icon("check_circle") + "<span>" + esc(msg) + "</span>";
     els.toast.classList.add("is-shown");
     clearTimeout(toastTimer);
@@ -480,18 +783,19 @@
     }, 2200);
   }
 
-  /* ------------------------------------------------ Init */
-
-  function prefill(w) {
-    els.title.value = w.title || "";
-    els.description.value = w.description || "";
-    els.youtube.value = w.youtube || "";
-    els.author.value = w.author || "";
-    els.added.value = w.added || "";
-    els.genre.value = w.genre || "";
-    (w.performers || []).forEach(addPerformer);
-    (w.music || []).forEach(addMusic);
-    (w.communities || []).forEach(addCommunity);
+  function updateIssueParams() {
+    if (!issueLink) return;
+    var entries = collectEntries();
+    var output = getOutput(entries);
+    var title = Array.isArray(output)
+      ? "作品追加: " + entries.length + "作品"
+      : "作品追加: " + (output.title || "無題");
+    issueLink.href =
+      issueBase +
+      "/issues/new?title=" +
+      encodeURIComponent(title) +
+      "&body=" +
+      encodeURIComponent("```json\n" + JSON.stringify(output, null, 2) + "\n```");
   }
 
   function setupGithubLink() {
@@ -500,7 +804,6 @@
     var repo = (cfg.repo || "").trim();
     var branch = (cfg.branch || "master").trim();
     var dataFile = (cfg.dataFile || "data/works.json").trim();
-
     var btn = els.githubBtn;
     var hint = els.githubHint;
 
@@ -513,129 +816,160 @@
       return;
     }
 
-    var base = "https://github.com/" + encodeURIComponent(owner) + "/" + encodeURIComponent(repo);
-    btn.href = base + "/edit/" + encodeURIComponent(branch) + "/" + dataFile;
+    issueBase = "https://github.com/" + encodeURIComponent(owner) + "/" + encodeURIComponent(repo);
+    btn.href = issueBase + "/edit/" + encodeURIComponent(branch) + "/" + dataFile;
 
-    var issue = document.createElement("a");
-    issue.className = "btn btn--text btn--small";
-    issue.href = base + "/issues/new";
-    issue.target = "_blank";
-    issue.rel = "noopener noreferrer";
-    issue.innerHTML = icon("question_answer") + "Issueで提案";
-
-    function setIssueParams() {
-      var obj = collect();
-      issue.href =
-        base +
-        "/issues/new?title=" +
-        encodeURIComponent("作品追加: " + obj.title) +
-        "&body=" +
-        encodeURIComponent("```json\n" + JSON.stringify(obj, null, 2) + "\n```");
-    }
-
-    document.addEventListener("input", setIssueParams);
-    document.addEventListener("click", setIssueParams);
-    issue.addEventListener("click", setIssueParams);
-    setIssueParams();
-
-    btn.insertAdjacentElement("afterend", issue);
+    issueLink = document.createElement("a");
+    issueLink.className = "btn btn--text btn--small";
+    issueLink.href = issueBase + "/issues/new";
+    issueLink.target = "_blank";
+    issueLink.rel = "noopener noreferrer";
+    issueLink.innerHTML = icon("question_answer") + "Issueで提案";
+    issueLink.addEventListener("click", updateIssueParams);
+    btn.insertAdjacentElement("afterend", issueLink);
+    updateIssueParams();
   }
 
   function init() {
     els.appbar = document.getElementById("app-bar");
-    els.title = document.getElementById("f-title");
-    els.genre = document.getElementById("f-genre");
-    els.description = document.getElementById("f-description");
-    els.youtube = document.getElementById("f-youtube");
-    els.author = document.getElementById("f-author");
-    els.added = document.getElementById("f-added");
-    els.performers = document.getElementById("repeat-performers");
-    els.music = document.getElementById("repeat-music");
-    els.communities = document.getElementById("repeat-communities");
+    els.tabList = document.getElementById("work-tab-list");
+    els.panels = document.getElementById("work-panels");
+    els.template = document.getElementById("work-form-template");
     els.jsonView = document.getElementById("json-view");
+    els.workCount = document.getElementById("work-count");
     els.validity = document.getElementById("validity-chip");
     els.copyBtn = document.getElementById("copy-btn");
     els.githubBtn = document.getElementById("github-btn");
     els.resetBtn = document.getElementById("reset-btn");
     els.githubHint = document.getElementById("github-hint");
-    els.autofetchBtn = document.getElementById("auto-fetch-btn");
-    els.youtubeHint = document.getElementById("youtube-hint");
     els.toast = document.getElementById("toast");
-
-    var params = new URLSearchParams(window.location.search);
-    var id = params.get("id") || "";
-    var initialSort = null;
 
     window.addEventListener("scroll", function () {
       els.appbar.classList.toggle("is-elevated", window.scrollY > 4);
     });
 
-    addPerformer();
-    addMusic();
-    addCommunity();
+    var firstWork = createWork();
+    activateWork(firstWork, false);
 
     document.addEventListener("input", function (e) {
+      var work = getWorkFromNode(e.target);
+      if (!work) return;
+      work.dirty = true;
+      if (e.target === work.elements.youtube) scheduleAutofill(work);
       update();
       if (e.target.classList && e.target.classList.contains("rp-input")) {
         var row = e.target.closest(".repeater-row");
-        if (row && row === row.parentElement.lastElementChild && String(e.target.value).trim()) {
+        if (row && row.parentElement.lastElementChild === row && String(e.target.value).trim()) {
           var container = row.parentElement;
-          if (container === els.performers) addPerformer();
-          else addCommunity();
+          if (container === work.elements.performers) addPerformer(work);
+          else if (container === work.elements.communities) addCommunity(work);
         }
       }
     });
 
-    document.addEventListener("change", update);
+    document.addEventListener("change", function (e) {
+      var work = getWorkFromNode(e.target);
+      if (!work) return;
+      work.dirty = true;
+      update();
+    });
+
+    document.addEventListener("paste", function (e) {
+      var work = getWorkFromNode(e.target);
+      if (!work || e.target !== work.elements.youtube) return;
+      work.dirty = true;
+      clearTimeout(work.autoFillTimer);
+      update();
+      setTimeout(function () {
+        if (getWork(work.key) === work && !String(work.elements.title.value || "").trim() && WORKS.parseYouTubeId(work.elements.youtube.value)) {
+          fetchAndFill(work, false);
+        }
+      }, 0);
+    });
 
     document.addEventListener("click", function (e) {
-      var removeBtn = e.target.closest(".rp-remove");
+      if (!e.target || !e.target.closest) return;
+      var tab = e.target.closest("[data-work-tab]");
+      if (tab) {
+        toggleWork(getWork(tab.getAttribute("data-work-tab")));
+        return;
+      }
+      if (e.target.closest("[data-add-work]")) {
+        addWork();
+        return;
+      }
+      var removeBtn = e.target.closest("[data-remove-work]");
       if (removeBtn) {
-        removeBtn.closest(".repeater-row, .repeater-row--multi").remove();
+        var removedWork = getWorkFromNode(removeBtn);
+        if (removedWork) removedWork.dirty = true;
+        removeWork(removedWork);
+        return;
+      }
+      var fetchBtn = e.target.closest("[data-fetch]");
+      if (fetchBtn) {
+        var fetchWork = getWorkFromNode(fetchBtn);
+        if (fetchWork) fetchWork.dirty = true;
+        fetchAndFill(fetchWork, true);
+        return;
+      }
+      var rowRemoveBtn = e.target.closest(".rp-remove");
+      if (rowRemoveBtn) {
+        var rowWork = getWorkFromNode(rowRemoveBtn);
+        var row = rowRemoveBtn.closest(".repeater-row, .repeater-row--multi");
+        if (row) row.remove();
+        if (rowWork) rowWork.dirty = true;
         update();
         return;
       }
       var addBtn = e.target.closest("[data-add]");
       if (addBtn) {
+        var work = getWorkFromNode(addBtn);
         var kind = addBtn.getAttribute("data-add");
-        if (kind === "performers") addPerformer();
-        else if (kind === "music") addMusic();
-        else if (kind === "communities") addCommunity();
+        if (!work) return;
+        work.dirty = true;
+        if (kind === "performers") addPerformer(work);
+        else if (kind === "music") addMusic(work);
+        else if (kind === "communities") addCommunity(work);
         update();
       }
+    });
+
+    document.addEventListener("keydown", function (e) {
+      if (!e.target || !e.target.closest) return;
+      var tab = e.target.closest("[data-work-tab]");
+      if (!tab) return;
+      var index = workItems.findIndex(function (work) {
+        return work.tab === tab;
+      });
+      if (index < 0) return;
+      var nextIndex = index;
+      if (e.key === "ArrowRight" || e.key === "ArrowDown") nextIndex = (index + 1) % workItems.length;
+      else if (e.key === "ArrowLeft" || e.key === "ArrowUp") nextIndex = (index - 1 + workItems.length) % workItems.length;
+      else if (e.key === "Home") nextIndex = 0;
+      else if (e.key === "End") nextIndex = workItems.length - 1;
+      else return;
+      e.preventDefault();
+      activateWork(workItems[nextIndex], false);
+      workItems[nextIndex].tab.focus();
     });
 
     els.copyBtn.addEventListener("click", copyJson);
     els.resetBtn.addEventListener("click", reset);
 
-    var autofillTimer = null;
-    function scheduleAutofill() {
-      clearTimeout(autofillTimer);
-      autofillTimer = setTimeout(function () {
-        if (!String(els.title.value || "").trim()) fetchAndFill(false);
-      }, 900);
-    }
-    els.youtube.addEventListener("input", scheduleAutofill);
-    els.youtube.addEventListener("paste", function () {
-      clearTimeout(autofillTimer);
-      if (!String(els.title.value || "").trim() && WORKS.parseYouTubeId(els.youtube.value)) {
-        fetchAndFill(false);
-      }
-    });
-    els.autofetchBtn.addEventListener("click", function () {
-      fetchAndFill(true);
-    });
-
+    var params = new URLSearchParams(window.location.search);
+    var id = params.get("id") || "";
     WORKS.load().then(function (works) {
       allWorks = works;
       if (id) {
-        editId = id;
         var existing = WORKS.byId(works, id);
-        if (existing) {
-          prefill(existing);
-          showEditBanner(existing);
-        } else {
-          prefill({ performers: [], music: [], communities: [] });
+        firstWork.editId = id;
+        if (!firstWork.dirty) {
+          if (existing) {
+            prefill(firstWork, existing);
+            showEditBanner(existing);
+          } else {
+            prefill(firstWork, {});
+          }
         }
       }
       setupGithubLink();

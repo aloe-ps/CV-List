@@ -18,7 +18,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="assets/css/style.css?v=2" />
+  <link rel="stylesheet" href="assets/css/style.css?v=4" />
 </head>
 <body>
 
@@ -47,7 +47,7 @@
       <div class="steps">
         <div class="step">
           <span class="step__num">1</span>
-          <span class="step__body">下のフォームに作品情報を入力すると、右側のJSONが自動生成されます。</span>
+          <span class="step__body">タブごとに作品情報を入力すると、右側に登録する作品すべてのJSONが自動生成されます。</span>
         </div>
         <div class="step">
           <span class="step__num">2</span>
@@ -55,7 +55,7 @@
         </div>
         <div class="step">
           <span class="step__num">3</span>
-          <span class="step__body">「GitHubで編集」を開き、リポジトリの <code id="step-datafile">docs/data/works.json</code> に貼り付け、Pull Requestを送ってください。</span>
+          <span class="step__body">「GitHubで編集」を開き、リポジトリの <code id="step-datafile">docs/data/works.json</code> の <code>works</code> 配列へ作品オブジェクトを追加し、Pull Requestを送ってください。</span>
         </div>
       </div>
     </section>
@@ -63,105 +63,123 @@
     <div class="gen-layout">
 
       <div class="gen-form">
+        <div class="work-tabs">
+          <div class="work-tabs__list" id="work-tab-list" role="tablist" aria-label="登録する作品"></div>
+          <button class="btn btn--tonal btn--small work-add" type="button" data-add-work aria-label="+登録する作品を追加">
+            <span class="work-add__plus" aria-hidden="true">+</span><span>登録する作品を追加</span>
+          </button>
+        </div>
 
-        <div class="gen-card">
-          <div class="gen-card__title">
-            <span class="material-symbols-outlined">movie</span>
-            作品情報
-          </div>
-          <div class="repeater" style="gap:14px">
+        <div class="work-panels" id="work-panels"></div>
 
-<label class="field">
-              <span class="field__label type-label-large">タイトル<span class="req">*</span></span>
-              <input class="field__control" id="f-title" type="text" placeholder="例:JapEn 17th" required />
-              <span class="field__error">タイトルは必須です</span>
-            </label>
-
-            <label class="field">
-              <span class="field__label type-label-large">ジャンル</span>
-              <span class="select" style="width:100%">
-                <select class="field__control" id="f-genre" style="height:44px;width:100%">
-                  <option value="">選択してください</option>
-                  <option value="CV">CV</option>
-                  <option value="SV">SV</option>
-                  <option value="PV">PV</option>
-                </select>
-              </span>
-              <span class="field__hint">CV / SV / PV のいずれかを選択</span>
-            </label>
-
-            <label class="field">
-              <span class="field__label type-label-large">作品の概要</span>
-              <textarea class="field__control textarea" id="f-description" placeholder="作品の紹介文（任意）"></textarea>
-            </label>
-
-            <label class="field">
-              <span class="field__label type-label-large">YouTube URL<span class="req">*</span></span>
-              <div class="youtube-row">
-                <input class="field__control" id="f-youtube" type="url" placeholder="https://youtu.be/..." />
-                <button class="btn btn--tonal btn--small" id="auto-fetch-btn" type="button">
-                  <span class="material-symbols-outlined">auto_awesome</span>
-                  自動入力
+        <template id="work-form-template">
+          <section class="work-panel" data-work-panel role="tabpanel" tabindex="0">
+            <div class="gen-card">
+              <div class="work-panel__head">
+                <div class="gen-card__title">
+                  <span class="material-symbols-outlined">movie</span>
+                  作品情報
+                </div>
+                <button class="btn btn--danger-text btn--small work-remove" type="button" data-remove-work>
+                  <span class="material-symbols-outlined">close</span>
+                  作品を削除
                 </button>
               </div>
-              <span class="field__hint" id="youtube-hint">youtu.be / youtube.com のURLを入力。貼り付けるとタイトル・概要・公開日を自動入力します。</span>
-            </label>
+              <div class="repeater" style="gap:14px">
 
-            <label class="field">
-              <span class="field__label type-label-large">作者<span class="req">*</span></span>
-              <input class="field__control" id="f-author" type="text" placeholder="例: JapEn Project" />
-            </label>
+                <label class="field">
+                  <span class="field__label type-label-large">タイトル<span class="req">*</span></span>
+                  <input class="field__control" data-field="title" type="text" placeholder="例:JapEn 17th" required />
+                  <span class="field__error">タイトルは必須です</span>
+                </label>
 
-            <label class="field">
-              <span class="field__label type-label-large">追加日（任意）</span>
-              <input class="field__control" id="f-added" type="date" />
-            </label>
+                <label class="field">
+                  <span class="field__label type-label-large">ジャンル</span>
+                  <span class="select" style="width:100%">
+                    <select class="field__control" data-field="genre" style="height:44px;width:100%">
+                      <option value="">選択してください</option>
+                      <option value="CV">CV</option>
+                      <option value="SV">SV</option>
+                      <option value="PV">PV</option>
+                    </select>
+                  </span>
+                  <span class="field__hint">CV / SV / PV のいずれかを選択</span>
+                </label>
 
-          </div>
-        </div>
+                <label class="field">
+                  <span class="field__label type-label-large">作品の概要</span>
+                  <textarea class="field__control textarea" data-field="description" placeholder="作品の紹介文（任意）"></textarea>
+                </label>
 
-        <div class="gen-card">
-          <div class="gen-card__title">
-            <span class="material-symbols-outlined">groups</span>
-            出演者
-          </div>
-          <div class="repeater" id="repeat-performers"></div>
-          <button class="btn btn--tonal btn--small repeater-add" type="button" data-add="performers" style="margin-top:12px">
-            <span class="material-symbols-outlined">add</span>
-            出演者を追加
-          </button>
-        </div>
+                <label class="field">
+                  <span class="field__label type-label-large">YouTube URL<span class="req">*</span></span>
+                  <div class="youtube-row">
+                    <input class="field__control" data-field="youtube" type="url" placeholder="https://youtu.be/..." />
+                    <button class="btn btn--tonal btn--small" data-fetch type="button">
+                      <span class="material-symbols-outlined">auto_awesome</span>
+                      自動入力
+                    </button>
+                  </div>
+                  <span class="field__hint" data-role="youtube-hint">youtu.be / youtube.com のURLを入力。貼り付けるとタイトル・概要・公開日を自動入力します。</span>
+                </label>
 
-        <div class="gen-card">
-          <div class="gen-card__title">
-            <span class="material-symbols-outlined">music_note</span>
-            使用楽曲と作曲者
-          </div>
-          <div class="repeater" id="repeat-music"></div>
-          <button class="btn btn--tonal btn--small repeater-add" type="button" data-add="music" style="margin-top:12px">
-            <span class="material-symbols-outlined">add</span>
-            楽曲を追加
-          </button>
-        </div>
+                <label class="field">
+                  <span class="field__label type-label-large">作者<span class="req">*</span></span>
+                  <input class="field__control" data-field="author" type="text" placeholder="例: JapEn Project" />
+                </label>
 
-        <div class="gen-card">
-          <div class="gen-card__title">
-            <span class="material-symbols-outlined">forum</span>
-            コミュニティ
-          </div>
-          <div class="repeater" id="repeat-communities"></div>
-          <button class="btn btn--tonal btn--small repeater-add" type="button" data-add="communities" style="margin-top:12px">
-            <span class="material-symbols-outlined">add</span>
-            コミュニティを追加
-          </button>
-        </div>
+                <label class="field">
+                  <span class="field__label type-label-large">追加日（任意）</span>
+                  <input class="field__control" data-field="added" type="date" />
+                </label>
 
+              </div>
+            </div>
+
+            <div class="gen-card">
+              <div class="gen-card__title">
+                <span class="material-symbols-outlined">groups</span>
+                出演者
+              </div>
+              <div class="repeater" data-repeater="performers"></div>
+              <button class="btn btn--tonal btn--small repeater-add" type="button" data-add="performers" style="margin-top:12px">
+                <span class="material-symbols-outlined">add</span>
+                出演者を追加
+              </button>
+            </div>
+
+            <div class="gen-card">
+              <div class="gen-card__title">
+                <span class="material-symbols-outlined">music_note</span>
+                使用楽曲と作曲者
+              </div>
+              <div class="repeater" data-repeater="music"></div>
+              <button class="btn btn--tonal btn--small repeater-add" type="button" data-add="music" style="margin-top:12px">
+                <span class="material-symbols-outlined">add</span>
+                楽曲を追加
+              </button>
+            </div>
+
+            <div class="gen-card">
+              <div class="gen-card__title">
+                <span class="material-symbols-outlined">forum</span>
+                コミュニティ
+              </div>
+              <div class="repeater" data-repeater="communities"></div>
+              <button class="btn btn--tonal btn--small repeater-add" type="button" data-add="communities" style="margin-top:12px">
+                <span class="material-symbols-outlined">add</span>
+                コミュニティを追加
+              </button>
+            </div>
+          </section>
+        </template>
       </div>
 
       <div class="preview-card">
         <div class="preview-card__head">
           <span class="material-symbols-outlined" style="color:var(--md-primary)">data_object</span>
           <span class="type-title-small">生成されるJSON</span>
+          <span class="chip" id="work-count">1作品</span>
           <span class="chip" id="validity-chip">入力待ち</span>
         </div>
 
@@ -176,10 +194,11 @@
             <span class="material-symbols-outlined">edit</span>
             GitHubで編集
           </a>
-          <button class="btn btn--text" id="reset-btn" type="button">リセット</button>
+          <button class="btn btn--text" id="reset-btn" type="button" title="現在選択中の作品をリセット" aria-label="現在選択中の作品をリセット">リセット</button>
         </div>
 
-        <p class="field__hint" id="github-hint">GitHubで編集 を開いてから、コピーしたJSONを <code>works</code> 配列の末尾に貼り付けて Pull Request を作成してください。</p>
+        <p class="field__hint" id="output-hint">1作品の場合は作品オブジェクト、2作品以上の場合は作品オブジェクトの配列を出力します。複数時は配列内の各オブジェクトを追加します。</p>
+        <p class="field__hint" id="github-hint">GitHubで編集 を開いてから、コピーした作品オブジェクト（複数時は配列内の各オブジェクト）を <code>works</code> 配列の末尾に追加して Pull Request を作成してください。</p>
       </div>
 
     </div>
@@ -194,6 +213,6 @@
   <script src="assets/js/config.js?v=2"></script>
   <script src="assets/js/works.js?v=2"></script>
   <script src="assets/js/theme.js?v=2"></script>
-  <script src="assets/js/generator.js?v=2"></script>
+  <script src="assets/js/generator.js?v=4"></script>
 </body>
 </html>
