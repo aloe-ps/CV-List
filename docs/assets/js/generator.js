@@ -125,31 +125,22 @@
     };
   }
 
-  function createTab(key) {
-    var tab = document.createElement("button");
-    tab.className = "work-tab";
-    tab.type = "button";
-    tab.id = "work-tab-" + key;
-    tab.setAttribute("role", "tab");
-    tab.setAttribute("aria-selected", "false");
-    tab.setAttribute("aria-expanded", "false");
-    tab.setAttribute("aria-controls", "work-panel-" + key);
-    tab.tabIndex = -1;
-    tab.setAttribute("data-work-tab", key);
-
-    var marker = document.createElement("span");
-    marker.className = "work-tab__marker";
-    marker.setAttribute("aria-hidden", "true");
-    marker.textContent = ">";
-    var label = document.createElement("span");
-    label.className = "work-tab__label";
-    var status = document.createElement("span");
-    status.className = "work-tab__status";
-    status.setAttribute("aria-hidden", "true");
-    tab.appendChild(marker);
-    tab.appendChild(label);
-    tab.appendChild(status);
-    return { tab: tab, label: label, status: status };
+  function createTriggerParts(root, key) {
+    var trigger = root.querySelector("[data-work-tab]");
+    var body = root.querySelector("[data-work-body]");
+    trigger.id = "work-trigger-" + key;
+    trigger.setAttribute("data-work-tab", key);
+    trigger.setAttribute("aria-controls", "work-body-" + key);
+    trigger.tabIndex = -1;
+    body.id = "work-body-" + key;
+    body.setAttribute("role", "region");
+    body.setAttribute("aria-labelledby", "work-trigger-" + key);
+    return {
+      trigger: trigger,
+      label: trigger.querySelector(".work-item__label"),
+      status: trigger.querySelector(".work-item__status"),
+      body: body
+    };
   }
 
   function createWork(data, editId) {
@@ -157,18 +148,17 @@
     nextWorkKey += 1;
 
     var root = els.template.content.firstElementChild.cloneNode(true);
-    root.id = "work-panel-" + key;
+    root.id = "work-item-" + key;
     root.setAttribute("data-work-key", key);
-    root.setAttribute("aria-labelledby", "work-tab-" + key);
-    root.hidden = true;
 
-    var tabParts = createTab(key);
+    var parts = createTriggerParts(root, key);
     var work = {
       key: key,
       root: root,
-      tab: tabParts.tab,
-      tabLabel: tabParts.label,
-      tabStatus: tabParts.status,
+      trigger: parts.trigger,
+      triggerLabel: parts.label,
+      triggerStatus: parts.status,
+      body: parts.body,
       elements: getFieldElements(root),
       editId: editId || null,
       autoFillTimer: null,
@@ -192,8 +182,7 @@
       if (work.elements.communities) work.elements.communities.id = "repeat-communities";
     }
 
-    els.panels.appendChild(root);
-    els.tabList.appendChild(work.tab);
+    els.accordion.appendChild(root);
     workItems.push(work);
     prefill(work, data || {});
     return work;
@@ -343,17 +332,17 @@
     return "作品" + (workItems.indexOf(work) + 1);
   }
 
-  function renderTab(work, entry) {
+  function renderTrigger(work, entry) {
     var index = workItems.indexOf(work) + 1;
     var label = getWorkLabel(work);
     var state = entry.missing.length ? "missing" : entry.duplicate ? "duplicate" : "ok";
-    work.tabLabel.textContent = label;
-    work.tab.setAttribute("data-state", state);
-    work.tab.setAttribute(
+    work.triggerLabel.textContent = label;
+    work.trigger.setAttribute("data-state", state);
+    work.trigger.setAttribute(
       "aria-label",
       index + "作品目: " + label + (state === "ok" ? "" : "（要確認）")
     );
-    work.tabStatus.textContent = state === "ok" ? "" : "!";
+    work.triggerStatus.textContent = state === "ok" ? "" : "!";
   }
 
   function highlight(value) {
@@ -401,7 +390,7 @@
     els.workCount.textContent = entries.length + "作品";
 
     entries.forEach(function (entry) {
-      renderTab(entry.work, entry);
+      renderTrigger(entry.work, entry);
     });
 
     if (missingCount) {
@@ -420,18 +409,16 @@
 
   function applyWorkState() {
     workItems.forEach(function (item) {
-      var selected = item.key === activeWorkKey;
       var expanded = item.key === expandedWorkKey;
-      item.root.hidden = !expanded;
-      item.tab.classList.toggle("is-active", expanded);
-      item.tab.setAttribute("aria-selected", selected ? "true" : "false");
-      item.tab.setAttribute("aria-expanded", expanded ? "true" : "false");
-      item.tab.tabIndex = selected ? 0 : -1;
+      item.root.classList.toggle("is-open", expanded);
+      item.body.hidden = !expanded;
+      item.trigger.setAttribute("aria-expanded", expanded ? "true" : "false");
+      item.trigger.tabIndex = item.key === activeWorkKey ? 0 : -1;
       if (item.elements.removeBtn) {
         item.elements.removeBtn.disabled = workItems.length === 1;
         item.elements.removeBtn.setAttribute(
           "aria-label",
-          selected ? "現在の作品を削除" : "この作品を削除"
+          item.key === activeWorkKey ? "現在の作品を削除" : "この作品を削除"
         );
       }
     });
@@ -472,7 +459,6 @@
     if (index < 0) return;
     workItems.splice(index, 1);
     work.root.remove();
-    work.tab.remove();
     var next = workItems[Math.min(index, workItems.length - 1)];
     activateWork(next, false);
     showToast("作品を削除しました");
@@ -832,8 +818,7 @@
 
   function init() {
     els.appbar = document.getElementById("app-bar");
-    els.tabList = document.getElementById("work-tab-list");
-    els.panels = document.getElementById("work-panels");
+    els.accordion = document.getElementById("work-accordion");
     els.template = document.getElementById("work-form-template");
     els.jsonView = document.getElementById("json-view");
     els.workCount = document.getElementById("work-count");
@@ -889,9 +874,9 @@
 
     document.addEventListener("click", function (e) {
       if (!e.target || !e.target.closest) return;
-      var tab = e.target.closest("[data-work-tab]");
-      if (tab) {
-        toggleWork(getWork(tab.getAttribute("data-work-tab")));
+      var trigger = e.target.closest("[data-work-tab]");
+      if (trigger) {
+        toggleWork(getWork(trigger.getAttribute("data-work-tab")));
         return;
       }
       if (e.target.closest("[data-add-work]")) {
@@ -936,21 +921,21 @@
 
     document.addEventListener("keydown", function (e) {
       if (!e.target || !e.target.closest) return;
-      var tab = e.target.closest("[data-work-tab]");
-      if (!tab) return;
+      var trigger = e.target.closest("[data-work-tab]");
+      if (!trigger) return;
       var index = workItems.findIndex(function (work) {
-        return work.tab === tab;
+        return work.trigger === trigger;
       });
       if (index < 0) return;
       var nextIndex = index;
-      if (e.key === "ArrowRight" || e.key === "ArrowDown") nextIndex = (index + 1) % workItems.length;
-      else if (e.key === "ArrowLeft" || e.key === "ArrowUp") nextIndex = (index - 1 + workItems.length) % workItems.length;
+      if (e.key === "ArrowDown" || e.key === "ArrowRight") nextIndex = (index + 1) % workItems.length;
+      else if (e.key === "ArrowUp" || e.key === "ArrowLeft") nextIndex = (index - 1 + workItems.length) % workItems.length;
       else if (e.key === "Home") nextIndex = 0;
       else if (e.key === "End") nextIndex = workItems.length - 1;
       else return;
       e.preventDefault();
       activateWork(workItems[nextIndex], false);
-      workItems[nextIndex].tab.focus();
+      workItems[nextIndex].trigger.focus();
     });
 
     els.copyBtn.addEventListener("click", copyJson);
