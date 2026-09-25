@@ -1,0 +1,50 @@
+name: Sync master to develop
+
+on:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    name: Create master → develop PR
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check for existing PR
+        id: check-pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          COUNT=$(gh pr list \
+            --base develop \
+            --head master \
+            --state open \
+            --json number \
+            --jq 'length')
+
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+
+      - name: Create sync PR
+        if: steps.check-pr.outputs.count == '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr create \
+            --base develop \
+            --head master \
+            --title "chore: sync master into develop" \
+            --body "## Master → Develop synchronization
+
+          This PR synchronizes the latest changes from \`master\` back into \`develop\`.
+
+          This PR was automatically created by GitHub Actions.
+
+          ### Reason
+          - Keep \`develop\` synchronized with released changes
+          - Prevent release/hotfix changes from being left only on \`master\`
+          "
