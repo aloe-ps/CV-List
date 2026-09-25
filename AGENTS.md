@@ -26,7 +26,6 @@
 - Worker をローカルで実行するには `npx wrangler dev --config worker/wrangler.toml` を使用し、デプロイするには `npm run deploy:worker` を実行します。リポジトリのルートディレクトリから他の Wrangler コマンドを実行する場合も、`worker/wrangler.toml` 内のコメントで省略されている場合を含め、`--config worker/wrangler.toml` の指定が必要です。
 
 - ビルド、リント、型チェック、テスト、CI 用のスクリプトは用意されていません。変更箇所の重点チェックを行う場合は、以下のコマンドを使用してください。
-  - JavaScript 変更のチェック: `node --check <変更したJSファイル>`
 
   - JSON 変更のパースチェック: `node -e "JSON.parse(require('fs').readFileSync('docs/data/works.json', 'utf8'))"`
 
