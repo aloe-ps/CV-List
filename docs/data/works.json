@@ -467,8 +467,8 @@
       "music": [
         {
           "title": "Ditto (Zekk Remix)",
-          "url": "Zekk",
-          "composer": "https://soundcloud.com/zekk_wa_zetku/ditto"
+          "url": "https://soundcloud.com/zekk_wa_zetku/ditto",
+          "composer": "Zekk"
         }
       ],
       "communities": [
