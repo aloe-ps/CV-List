@@ -50,7 +50,7 @@ var state = {
     }
     fallback =
       '<div class="card__fallback" aria-hidden="true">' + icon("featured_video") + "</div>";
-    return '<div class="card__thumb">' + img + fallback + "</div>";
+    return '<div class="card__thumb">' + img + "</div>";
   }
 
   function musicPreview(w) {
