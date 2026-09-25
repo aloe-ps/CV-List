@@ -6,7 +6,7 @@ on:
       - master
 
 permissions:
-  contents: write
+  contents: read
   pull-requests: write
 
 jobs:
@@ -19,8 +19,10 @@ jobs:
         id: check-pr
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           COUNT=$(gh pr list \
+            --repo "$GH_REPO" \
             --base develop \
             --head master \
             --state open \
@@ -33,8 +35,10 @@ jobs:
         if: steps.check-pr.outputs.count == '0'
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           gh pr create \
+            --repo "$GH_REPO" \
             --base develop \
             --head master \
             --title "chore: sync master into develop" \
