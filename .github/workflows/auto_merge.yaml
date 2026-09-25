@@ -23,7 +23,7 @@ jobs:
         run: |
           COUNT=$(gh pr list \
             --repo "$GH_REPO" \
-            --base develop \
+            --base Develop \
             --head master \
             --state open \
             --json number \
