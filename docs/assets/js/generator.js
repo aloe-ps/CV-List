@@ -319,11 +319,12 @@
     return entries;
   }
 
-  function getOutput(entries) {
-    var objects = entries.map(function (entry) {
-      return entry.obj;
-    });
-    return objects.length === 1 ? objects[0] : objects;
+  function stringifyOutput(entries) {
+    return entries
+      .map(function (entry) {
+        return JSON.stringify(entry.obj, null, 2);
+      })
+      .join(",\n");
   }
 
   function getWorkLabel(work) {
@@ -345,8 +346,7 @@
     work.triggerStatus.textContent = state === "ok" ? "" : "!";
   }
 
-  function highlight(value) {
-    var json = JSON.stringify(value, null, 2);
+  function highlight(json) {
     var out = esc(json);
     out = out
       .replace(/(&quot;(?:\\.|[^&])*?&quot;)(\s*:)?/g, function (m, str, colon) {
@@ -375,7 +375,7 @@
   function update() {
     if (!els.jsonView) return null;
     var entries = collectEntries();
-    var output = getOutput(entries);
+    var json = stringifyOutput(entries);
     var missingCount = entries.filter(function (entry) {
       return entry.missing.length > 0;
     }).length;
@@ -385,7 +385,7 @@
 
     els.jsonView.textContent = "";
     var code = document.createElement("code");
-    code.innerHTML = highlight(output);
+    code.innerHTML = highlight(json);
     els.jsonView.appendChild(code);
     els.workCount.textContent = entries.length + "作品";
 
@@ -404,7 +404,7 @@
     }
 
     updateIssueParams();
-    return { entries: entries, output: output, missingCount: missingCount, duplicateCount: duplicateCount };
+    return { entries: entries, json: json, missingCount: missingCount, duplicateCount: duplicateCount };
   }
 
   function applyWorkState() {
@@ -714,12 +714,11 @@
 
   function copyJson() {
     var snapshot = collectEntries();
-    var output = getOutput(snapshot);
     var missingCount = snapshot.filter(function (entry) {
       return entry.missing.length > 0;
     }).length;
     copyText(
-      JSON.stringify(output, null, 2),
+      stringifyOutput(snapshot),
       function () {
         showToast(
           missingCount
@@ -772,16 +771,17 @@
   function updateIssueParams() {
     if (!issueLink) return;
     var entries = collectEntries();
-    var output = getOutput(entries);
-    var title = Array.isArray(output)
-      ? "作品追加: " + entries.length + "作品"
-      : "作品追加: " + (output.title || "無題");
+    var json = stringifyOutput(entries);
+    var title =
+      entries.length > 1
+        ? "作品追加: " + entries.length + "作品"
+        : "作品追加: " + (entries[0].obj.title || "無題");
     issueLink.href =
       issueBase +
       "/issues/new?title=" +
       encodeURIComponent(title) +
       "&body=" +
-      encodeURIComponent("```json\n" + JSON.stringify(output, null, 2) + "\n```");
+      encodeURIComponent("```json\n" + json + "\n```");
   }
 
   function setupGithubLink() {

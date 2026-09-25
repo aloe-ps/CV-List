@@ -203,8 +203,8 @@
           <button class="btn btn--text" id="reset-btn" type="button" title="現在選択中の作品をリセット" aria-label="現在選択中の作品をリセット">リセット</button>
         </div>
 
-        <p class="field__hint" id="output-hint">1作品の場合は作品オブジェクト、2作品以上の場合は作品オブジェクトの配列を出力します。複数時は配列内の各オブジェクトを追加します。</p>
-        <p class="field__hint" id="github-hint">GitHubで編集 を開いてから、コピーした作品オブジェクト（複数時は配列内の各オブジェクト）を <code>works</code> 配列の末尾に追加して Pull Request を作成してください。</p>
+        <p class="field__hint" id="output-hint">作品オブジェクトを出力します。複数の作品を登録している場合はカンマ区切りで並ぶので、そのまま <code>works</code> 配列の中に貼り付けられます（配列の <code>[ ]</code> は出力しません）。</p>
+        <p class="field__hint" id="github-hint">GitHubで編集 を開いてから、コピーした内容を <code>works</code> 配列の末尾に追加して Pull Request を作成してください。</p>
       </div>
 
     </div>
@@ -219,6 +219,6 @@
   <script src="assets/js/config.js?v=2"></script>
   <script src="assets/js/works.js?v=2"></script>
   <script src="assets/js/theme.js?v=2"></script>
-  <script src="assets/js/generator.js?v=5"></script>
+  <script src="assets/js/generator.js?v=6"></script>
 </body>
 </html>
