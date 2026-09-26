@@ -501,7 +501,7 @@
   function highlight(json) {
     var out = esc(json);
     out = out
-      .replace(/(&quot;(?:\\.|[^&])*?&quot;)(\s*:)?/g, function (m, str, colon) {
+      .replace(/(&quot;(?:\\.|&(?:amp|lt|gt|quot|#39);|[^&])*?&quot;)(\s*:)?/g, function (m, str, colon) {
         return colon ? '<span class="k">' + str + "</span>" + colon : '<span class="s">' + str + "</span>";
       })
       .replace(/(:\s*)(-?\d+(?:\.\d+)?(?:e[+-]?\d+)?)/gi, '$1<span class="n">$2</span>')
