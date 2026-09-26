@@ -782,7 +782,7 @@
         return r.json();
       })
       .then(function (json) {
-        if (!json || !Array.isArray(json.items)) {
+        if (!json || json.error || !Array.isArray(json.items)) {
           throw new Error((json && json.error) || "playlist notfound");
         }
         return json;
