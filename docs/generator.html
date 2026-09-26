@@ -63,6 +63,21 @@
     <div class="gen-layout">
 
       <div class="gen-form">
+        <div class="gen-card">
+          <div class="gen-card__title">
+            <span class="material-symbols-outlined">playlist_play</span>
+            プレイリストから一括追加
+          </div>
+          <div class="youtube-row">
+            <input class="field__control" id="playlist-url" type="url" placeholder="https://www.youtube.com/playlist?list=PLxxxx" />
+            <button class="btn btn--tonal btn--small" id="playlist-btn" type="button">
+              <span class="material-symbols-outlined">auto_awesome</span>
+              取り込む
+            </button>
+          </div>
+          <span class="field__hint" id="playlist-hint">再生リストの動画を1本ずつ作品フォームとして追加します（タイトル・概要・公開日を自動入力、ジャンルは判別できた場合のみ）。著者は自動入力されないため、取り込み後に各作品へ入力してください。登録済みの動画はスキップします。</span>
+        </div>
+
         <div class="work-acc" id="work-accordion"></div>
 
         <button class="btn btn--tonal btn--small work-add" type="button" data-add-work aria-label="登録する作品を追加">
@@ -220,8 +235,8 @@
   <div class="toast" id="toast" role="status"></div>
 
   <script src="assets/js/config.js?v=2"></script>
-  <script src="assets/js/works.js?v=2"></script>
+  <script src="assets/js/works.js?v=3"></script>
   <script src="assets/js/theme.js?v=2"></script>
-  <script src="assets/js/generator.js?v=7"></script>
+  <script src="assets/js/generator.js?v=8"></script>
 </body>
 </html>
