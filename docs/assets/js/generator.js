@@ -13,6 +13,13 @@
   var PLAYLIST_PAGE_SIZE = 50;
   var PLAYLIST_MAX_ITEMS = 500;
 
+  var BULK_FIELDS = {
+    author: { label: "作者" },
+    genre: { label: "ジャンル" },
+    communities: { label: "コミュニティ" }
+  };
+  var bulkDirty = {};
+
   function esc(text) {
     return String(text)
       .replace(/&/g, "&amp;")
@@ -220,6 +227,119 @@
     if (!performers.length) addPerformer(work);
     if (!music.length) addMusic(work);
     if (!communities.length) addCommunity(work);
+  }
+
+  function parseBulkList(text) {
+    var out = [];
+    String(text || "")
+      .split(/[,、\n\r\t]+/)
+      .forEach(function (part) {
+        var value = part.trim();
+        if (value && out.indexOf(value) === -1) out.push(value);
+      });
+    return out;
+  }
+
+  function readFieldValue(work, name) {
+    if (!work || !BULK_FIELDS[name]) return "";
+    if (name === "communities") {
+      return collectRows(work.elements.communities, ".repeater-row").join(", ");
+    }
+    return String(work.elements[name].value || "").trim();
+  }
+
+  function writeFieldValue(work, name, value) {
+    if (!work || !work.elements) return;
+    if (name === "communities") {
+      var list = parseBulkList(value);
+      work.elements.communities.innerHTML = "";
+      list.forEach(function (item) {
+        addCommunity(work, item);
+      });
+      if (!list.length) addCommunity(work);
+      return;
+    }
+    work.elements[name].value = value;
+  }
+
+  function getBulkInput(node) {
+    if (!node || !node.getAttribute) return null;
+    var name = node.getAttribute("data-bulk-field");
+    return name && BULK_FIELDS[name] ? name : null;
+  }
+
+  function readBulkValue(name) {
+    var input = els.bulkFields[name];
+    return input ? String(input.value || "").trim() : "";
+  }
+
+  function commonFieldValue(name) {
+    var common = null;
+    for (var i = 0; i < workItems.length; i += 1) {
+      var value = readFieldValue(workItems[i], name);
+      if (i === 0) {
+        common = value;
+        continue;
+      }
+      if (value !== common) return "";
+    }
+    return common || "";
+  }
+
+  function syncBulkFields() {
+    Object.keys(BULK_FIELDS).forEach(function (name) {
+      if (bulkDirty[name]) return;
+      var input = els.bulkFields[name];
+      if (!input) return;
+      var value = commonFieldValue(name);
+      if (input.value !== value) input.value = value;
+    });
+  }
+
+  function bulkTargets(name) {
+    var onlyEmpty = Boolean(els.bulkScope) && els.bulkScope.value === "empty";
+    return workItems.filter(function (work) {
+      return !onlyEmpty || !readFieldValue(work, name);
+    });
+  }
+
+  function applyBulkFields(names) {
+    var labels = [];
+    var touched = {};
+
+    names.forEach(function (name) {
+      var value = readBulkValue(name);
+      var filled = name === "communities" ? parseBulkList(value).length > 0 : Boolean(value);
+      if (!filled) return;
+      var targets = bulkTargets(name);
+      if (!targets.length) return;
+      targets.forEach(function (work) {
+        work.dirty = true;
+        touched[work.key] = true;
+        writeFieldValue(work, name, value);
+      });
+      labels.push(BULK_FIELDS[name].label);
+    });
+
+    if (!labels.length) {
+      var hasValue = names.some(function (name) {
+        var raw = readBulkValue(name);
+        return name === "communities" ? parseBulkList(raw).length > 0 : Boolean(raw);
+      });
+      showToast(hasValue ? "未入力の作品がありません" : "一括編集する値を入力してください");
+      return;
+    }
+
+    update();
+    showToast(labels.join("・") + "を" + Object.keys(touched).length + "作品に適用しました");
+  }
+
+  function applyBulkState() {
+    if (!els.bulkCard) return;
+    els.bulkCard.hidden = workItems.length < 2;
+    if (els.bulkCard.hidden) return;
+    els.bulkCount.textContent = workItems.length + "作品";
+    syncBulkFields();
   }
 
   function slugify(text) {
@@ -455,6 +575,8 @@
         );
       }
     });
+
+    applyBulkState();
   }
 
   function activateWork(work, focus) {
@@ -1008,6 +1130,13 @@
     els.resetBtn = document.getElementById("reset-btn");
     els.githubHint = document.getElementById("github-hint");
     els.toast = document.getElementById("toast");
+    els.bulkCard = document.getElementById("bulk-card");
+    els.bulkCount = document.getElementById("bulk-count");
+    els.bulkScope = document.getElementById("bulk-scope");
+    els.bulkFields = {};
+    Object.keys(BULK_FIELDS).forEach(function (name) {
+      els.bulkFields[name] = document.querySelector('[data-bulk-field="' + name + '"]');
+    });
     els.playlistUrl = document.getElementById("playlist-url");
     els.playlistBtn = document.getElementById("playlist-btn");
     els.playlistHint = document.getElementById("playlist-hint");
@@ -1031,6 +1160,11 @@
     activateWork(firstWork, false);
 
     document.addEventListener("input", function (e) {
+      var bulkName = getBulkInput(e.target);
+      if (bulkName) {
+        bulkDirty[bulkName] = true;
+        return;
+      }
       var work = getWorkFromNode(e.target);
       if (!work) return;
       work.dirty = true;
@@ -1047,6 +1181,11 @@
     });
 
     document.addEventListener("change", function (e) {
+      var bulkName = getBulkInput(e.target);
+      if (bulkName) {
+        bulkDirty[bulkName] = true;
+        return;
+      }
       var work = getWorkFromNode(e.target);
       if (!work) return;
       work.dirty = true;
@@ -1068,6 +1207,20 @@
 
     document.addEventListener("click", function (e) {
       if (!e.target || !e.target.closest) return;
+      var bulkBtn = e.target.closest("[data-bulk-apply]");
+      if (bulkBtn) {
+        var bulkName = bulkBtn.getAttribute("data-bulk-apply");
+        if (bulkName === "all") {
+          Object.keys(BULK_FIELDS).forEach(function (name) {
+            bulkDirty[name] = true;
+          });
+          applyBulkFields(Object.keys(BULK_FIELDS));
+        } else if (BULK_FIELDS[bulkName]) {
+          bulkDirty[bulkName] = true;
+          applyBulkFields([bulkName]);
+        }
+        return;
+      }
       var trigger = e.target.closest("[data-work-tab]");
       if (trigger) {
         toggleWork(getWork(trigger.getAttribute("data-work-tab")));
@@ -1115,6 +1268,13 @@
 
     document.addEventListener("keydown", function (e) {
       if (!e.target || !e.target.closest) return;
+      var bulkName = getBulkInput(e.target);
+      if (bulkName && e.key === "Enter") {
+        e.preventDefault();
+        bulkDirty[bulkName] = true;
+        applyBulkFields([bulkName]);
+        return;
+      }
       var trigger = e.target.closest("[data-work-tab]");
       if (!trigger) return;
       var index = workItems.findIndex(function (work) {
