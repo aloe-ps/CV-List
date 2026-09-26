@@ -9,6 +9,9 @@
   var issueLink = null;
   var issueBase = "";
   var toastTimer = null;
+  var playlistBusy = false;
+  var PLAYLIST_PAGE_SIZE = 50;
+  var PLAYLIST_MAX_ITEMS = 500;
 
   var BULK_FIELDS = {
     author: { label: "作者" },
@@ -128,6 +131,7 @@
       communities: root.querySelector('[data-repeater="communities"]'),
       autofetchBtn: root.querySelector("[data-fetch]"),
       youtubeHint: root.querySelector('[data-role="youtube-hint"]'),
+      youtubeError: root.querySelector('[data-role="youtube-error"]'),
       removeBtn: root.querySelector("[data-remove-work]")
     };
   }
@@ -389,13 +393,12 @@
     var obj = {
       id: work.editId || yid || slugify(title),
       title: title,
+      genre: String(fields.genre.value || "").trim(),
       author: author,
       performers: collectRows(fields.performers, ".repeater-row"),
       music: collectMusic(work),
       communities: collectRows(fields.communities, ".repeater-row")
     };
-    var genre = String(fields.genre.value || "").trim();
-    if (genre) obj.genre = genre;
     if (description) obj.description = description;
     if (youtube) obj.youtube = youtube;
     if (added) obj.added = added;
@@ -405,10 +408,39 @@
   function validate(obj) {
     var missing = [];
     if (!obj.title) missing.push("タイトル");
+    if (!obj.genre) missing.push("ジャンル");
     if (!obj.author) missing.push("作者");
     if (!obj.youtube) missing.push("YouTube URL");
     else if (!WORKS.parseYouTubeId(obj.youtube)) missing.push("YouTube URL");
     return missing;
+  }
+
+  var REQUIRED_FIELDS = [
+    { name: "title", label: "タイトル" },
+    { name: "genre", label: "ジャンル" },
+    { name: "author", label: "作者" },
+    { name: "youtube", label: "YouTube URL" }
+  ];
+
+  function renderFieldErrors(entry) {
+    var fields = entry.work.elements;
+    var missing = entry.work.dirty ? entry.missing : [];
+    REQUIRED_FIELDS.forEach(function (item) {
+      var control = fields[item.name];
+      if (!control) return;
+      var invalid = missing.indexOf(item.label) !== -1;
+      var wrapper = control.closest ? control.closest(".field") : null;
+      if (wrapper) wrapper.classList.toggle("has-error", invalid);
+      if (invalid) control.setAttribute("aria-invalid", "true");
+      else control.removeAttribute("aria-invalid");
+    });
+    var youtubeError = fields.youtubeError;
+    if (youtubeError) {
+      youtubeError.textContent =
+        String(fields.youtube.value || "").trim() && missing.indexOf("YouTube URL") !== -1
+          ? "YouTube URLの形式が正しくありません"
+          : "YouTube URLは必須です";
+    }
   }
 
   function hasIdentity(obj) {
@@ -511,6 +543,7 @@
 
     entries.forEach(function (entry) {
       renderTrigger(entry.work, entry);
+      renderFieldErrors(entry);
     });
 
     if (missingCount) {
@@ -722,6 +755,153 @@
     });
   }
 
+  function toDateInput(value) {
+    var m = /^(\d{4}-\d{2}-\d{2})/.exec(String(value || ""));
+    return m ? m[1] : "";
+  }
+
+  function detectGenre(text) {
+    var m = /(?:^|[^0-9A-Za-z])(CV|SV|PV)(?:[^0-9A-Za-z]|$)/i.exec(String(text || ""));
+    return m ? m[1].toUpperCase() : "";
+  }
+
+  function fetchPlaylistPage(playlistId, pageToken) {
+    var ep = metadataEndpoint();
+    if (!ep) return Promise.reject(new Error("no endpoint"));
+    var url =
+      ep +
+      (ep.indexOf("?") === -1 ? "?" : "&") +
+      "url=" +
+      encodeURIComponent("https://www.youtube.com/playlist?list=" + playlistId) +
+      "&maxResults=" +
+      PLAYLIST_PAGE_SIZE;
+    if (pageToken) url += "&pageToken=" + encodeURIComponent(pageToken);
+    return fetch(url)
+      .then(function (r) {
+        if (!r.ok) throw new Error("endpoint");
+        return r.json();
+      })
+      .then(function (json) {
+        if (!json || !Array.isArray(json.items)) {
+          throw new Error((json && json.error) || "playlist notfound");
+        }
+        return json;
+      });
+  }
+
+  function knownVideoIds() {
+    var ids = {};
+    allWorks.forEach(function (w) {
+      var id = WORKS.parseYouTubeId(w.youtube);
+      if (id) ids[id] = true;
+    });
+    workItems.forEach(function (work) {
+      var id = WORKS.parseYouTubeId(work.elements.youtube.value);
+      if (id) ids[id] = true;
+    });
+    return ids;
+  }
+
+  function setPlaylistBusy(on) {
+    playlistBusy = on;
+    var btn = els.playlistBtn;
+    if (!btn) return;
+    btn.disabled = on;
+    var btnIcon = btn.querySelector(".material-symbols-outlined");
+    if (!btnIcon) return;
+    if (on) {
+      btnIcon.textContent = "progress_activity";
+      btn.classList.add("is-spinning");
+    } else {
+      btnIcon.textContent = "auto_awesome";
+      btn.classList.remove("is-spinning");
+    }
+  }
+
+  function importPlaylist() {
+    if (playlistBusy) return;
+    if (!els.playlistUrl || !metadataEndpoint()) {
+      showToast("取り込みには youtubeMetadataEndpoint（Cloudflare Worker）の設定が必要です");
+      return;
+    }
+    var playlistId = WORKS.parsePlaylistId(els.playlistUrl.value);
+    if (!playlistId) {
+      showToast("再生リストのURLまたはIDが不正です");
+      return;
+    }
+
+    var seen = knownVideoIds();
+    var items = [];
+    var fetched = 0;
+    var playlistTitle = "";
+    var nextPageToken = "";
+
+    function load(pageToken) {
+      return fetchPlaylistPage(playlistId, pageToken).then(function (json) {
+        if (json.title) playlistTitle = json.title;
+        fetched += (json.items || []).length;
+        (json.items || []).forEach(function (item) {
+          var id = String(item.videoId || "");
+          if (!/^[A-Za-z0-9_-]{11}$/.test(id) || seen[id]) return;
+          seen[id] = true;
+          items.push(item);
+        });
+        nextPageToken = String(json.nextPageToken || "");
+      });
+    }
+
+    setPlaylistBusy(true);
+    if (els.playlistHint) els.playlistHint.textContent = "取得中...";
+
+    load("")
+      .then(function step() {
+        if (!nextPageToken || items.length >= PLAYLIST_MAX_ITEMS) return null;
+        return load(nextPageToken).then(step);
+      })
+      .then(function () {
+        if (!items.length) throw new Error("empty");
+        var first = null;
+        items.forEach(function (item) {
+          var work = createWork({
+            title: item.title || "",
+            description: item.description || "",
+            youtube: "https://youtu.be/" + item.videoId,
+            added: toDateInput(item.publishedAt),
+            genre: detectGenre(item.title) || detectGenre(playlistTitle)
+          });
+          if (!first) first = work;
+        });
+        activateWork(first, false);
+        var skipped = fetched - items.length;
+        showToast(
+          items.length + "作品を追加しました" + (skipped > 0 ? "（登録済み " + skipped + "本をスキップ）" : "")
+        );
+        if (els.playlistHint) {
+          els.playlistHint.textContent =
+            items.length +
+            "作品を追加しました" +
+            (skipped > 0 ? "。登録済みの " + skipped + "本はスキップしています。" : "。") +
+            (nextPageToken ? " 上限 " + PLAYLIST_MAX_ITEMS + "件で打ち切りました。" : "") +
+            " 著者は自動入力されないため、各作品へ入力してください。";
+        }
+      })
+      .catch(function (err) {
+        var reason = String((err && err.message) || "");
+        if (reason === "empty") {
+          showToast("再生リストに動画が見つかりませんでした");
+        } else if (reason === "no endpoint") {
+          showToast("取り込みには youtubeMetadataEndpoint（Cloudflare Worker）の設定が必要です");
+        } else {
+          showToast("再生リストの取得に失敗しました（Worker の再デプロイが必要な場合があります）");
+        }
+        if (els.playlistHint) els.playlistHint.textContent = els.playlistHintText || "";
+      })
+      .then(function () {
+        setPlaylistBusy(false);
+        update();
+      });
+  }
+
   function isCurrentRequest(work, id, token) {
     return (
       getWork(work.key) === work &&
@@ -736,9 +916,9 @@
     }
     setValue(work.elements.title, meta.title);
     setValue(work.elements.description, meta.description);
-    var date = /^\d{4}-\d{2}-\d{2}/.exec(meta.publishedAt || "");
+    var date = toDateInput(meta.publishedAt);
     if (date && (force || !String(work.elements.added.value || "").trim())) {
-      work.elements.added.value = date[0];
+      work.elements.added.value = date;
     }
     update();
   }
@@ -957,6 +1137,20 @@
     Object.keys(BULK_FIELDS).forEach(function (name) {
       els.bulkFields[name] = document.querySelector('[data-bulk-field="' + name + '"]');
     });
+    els.playlistUrl = document.getElementById("playlist-url");
+    els.playlistBtn = document.getElementById("playlist-btn");
+    els.playlistHint = document.getElementById("playlist-hint");
+    if (els.playlistHint) els.playlistHintText = els.playlistHint.textContent;
+    if (els.playlistBtn) {
+      els.playlistBtn.addEventListener("click", importPlaylist);
+    }
+    if (els.playlistUrl) {
+      els.playlistUrl.addEventListener("keydown", function (e) {
+        if (e.key !== "Enter") return;
+        e.preventDefault();
+        importPlaylist();
+      });
+    }
 
     window.addEventListener("scroll", function () {
       els.appbar.classList.toggle("is-elevated", window.scrollY > 4);

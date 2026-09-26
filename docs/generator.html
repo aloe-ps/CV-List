@@ -121,6 +121,20 @@
             </button>
           </div>
         </section>
+        <div class="gen-card">
+          <div class="gen-card__title">
+            <span class="material-symbols-outlined">playlist_play</span>
+            プレイリストから一括追加
+          </div>
+          <div class="youtube-row">
+            <input class="field__control" id="playlist-url" type="url" placeholder="https://www.youtube.com/playlist?list=PLxxxx" />
+            <button class="btn btn--tonal btn--small" id="playlist-btn" type="button">
+              <span class="material-symbols-outlined">auto_awesome</span>
+              取り込む
+            </button>
+          </div>
+          <span class="field__hint" id="playlist-hint">再生リストの動画を1本ずつ作品フォームとして追加します（タイトル・概要・公開日を自動入力、ジャンルは判別できた場合のみ）。著者は自動入力されないため、取り込み後に各作品へ入力してください。登録済みの動画はスキップします。</span>
+        </div>
 
         <div class="work-acc" id="work-accordion"></div>
 
@@ -158,15 +172,16 @@
                   </label>
 
                   <label class="field">
-                    <span class="field__label type-label-large">ジャンル</span>
+                    <span class="field__label type-label-large">ジャンル<span class="req">*</span></span>
                     <span class="select" style="width:100%">
-                      <select class="field__control" data-field="genre" style="height:44px;width:100%">
+                      <select class="field__control" data-field="genre" style="height:44px;width:100%" required>
                         <option value="">選択してください</option>
                         <option value="CV">CV</option>
                         <option value="SV">SV</option>
                         <option value="PV">PV</option>
                       </select>
                     </span>
+                    <span class="field__error">ジャンルは必須です</span>
                     <span class="field__hint">CV / SV / PV のいずれかを選択</span>
                   </label>
 
@@ -184,12 +199,14 @@
                         自動入力
                       </button>
                     </div>
+                    <span class="field__error" data-role="youtube-error">YouTube URLは必須です</span>
                     <span class="field__hint" data-role="youtube-hint">youtu.be / youtube.com のURLを入力。貼り付けるとタイトル・概要・公開日を自動入力します。</span>
                   </label>
 
                   <label class="field">
                     <span class="field__label type-label-large">作者<span class="req">*</span></span>
                     <input class="field__control" data-field="author" type="text" placeholder="例: JapEn Project" />
+                    <span class="field__error">作者は必須です</span>
                   </label>
 
                   <label class="field">
@@ -276,8 +293,8 @@
   <div class="toast" id="toast" role="status"></div>
 
   <script src="assets/js/config.js?v=2"></script>
-  <script src="assets/js/works.js?v=2"></script>
+  <script src="assets/js/works.js?v=3"></script>
   <script src="assets/js/theme.js?v=2"></script>
-  <script src="assets/js/generator.js?v=7"></script>
+  <script src="assets/js/generator.js?v=8"></script>
 </body>
 </html>
