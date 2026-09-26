@@ -29,6 +29,31 @@ var WORKS = (function () {
     return m ? m[1] : null;
   }
 
+  function parsePlaylistId(url) {
+    if (!url) return null;
+    var raw = String(url).trim();
+    if (/^[A-Za-z0-9_-]{10,128}$/.test(raw)) return raw;
+    var u;
+    try {
+      u = new URL(raw);
+    } catch (e) {
+      return null;
+    }
+    if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+    var host = u.hostname.toLowerCase();
+    var hosts = [
+      "youtube.com",
+      "www.youtube.com",
+      "m.youtube.com",
+      "music.youtube.com",
+      "youtu.be",
+      "www.youtu.be",
+    ];
+    if (hosts.indexOf(host) === -1) return null;
+    var list = u.searchParams.get("list");
+    return list && /^[A-Za-z0-9_-]{10,128}$/.test(list) ? list : null;
+  }
+
   function thumbUrl(id, size) {
     size = size || "mqdefault";
     return (
@@ -85,6 +110,7 @@ var WORKS = (function () {
     load: load,
     byId: byId,
     parseYouTubeId: parseYouTubeId,
+    parsePlaylistId: parsePlaylistId,
     thumbUrl: thumbUrl,
     normalize: normalize,
     GENRES: GENRES,
