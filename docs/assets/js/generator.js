@@ -131,6 +131,7 @@
       communities: root.querySelector('[data-repeater="communities"]'),
       autofetchBtn: root.querySelector("[data-fetch]"),
       youtubeHint: root.querySelector('[data-role="youtube-hint"]'),
+      youtubeError: root.querySelector('[data-role="youtube-error"]'),
       removeBtn: root.querySelector("[data-remove-work]")
     };
   }
@@ -392,13 +393,12 @@
     var obj = {
       id: work.editId || yid || slugify(title),
       title: title,
+      genre: String(fields.genre.value || "").trim(),
       author: author,
       performers: collectRows(fields.performers, ".repeater-row"),
       music: collectMusic(work),
       communities: collectRows(fields.communities, ".repeater-row")
     };
-    var genre = String(fields.genre.value || "").trim();
-    if (genre) obj.genre = genre;
     if (description) obj.description = description;
     if (youtube) obj.youtube = youtube;
     if (added) obj.added = added;
@@ -408,10 +408,39 @@
   function validate(obj) {
     var missing = [];
     if (!obj.title) missing.push("タイトル");
+    if (!obj.genre) missing.push("ジャンル");
     if (!obj.author) missing.push("作者");
     if (!obj.youtube) missing.push("YouTube URL");
     else if (!WORKS.parseYouTubeId(obj.youtube)) missing.push("YouTube URL");
     return missing;
+  }
+
+  var REQUIRED_FIELDS = [
+    { name: "title", label: "タイトル" },
+    { name: "genre", label: "ジャンル" },
+    { name: "author", label: "作者" },
+    { name: "youtube", label: "YouTube URL" }
+  ];
+
+  function renderFieldErrors(entry) {
+    var fields = entry.work.elements;
+    var missing = entry.work.dirty ? entry.missing : [];
+    REQUIRED_FIELDS.forEach(function (item) {
+      var control = fields[item.name];
+      if (!control) return;
+      var invalid = missing.indexOf(item.label) !== -1;
+      var wrapper = control.closest ? control.closest(".field") : null;
+      if (wrapper) wrapper.classList.toggle("has-error", invalid);
+      if (invalid) control.setAttribute("aria-invalid", "true");
+      else control.removeAttribute("aria-invalid");
+    });
+    var youtubeError = fields.youtubeError;
+    if (youtubeError) {
+      youtubeError.textContent =
+        String(fields.youtube.value || "").trim() && missing.indexOf("YouTube URL") !== -1
+          ? "YouTube URLの形式が正しくありません"
+          : "YouTube URLは必須です";
+    }
   }
 
   function hasIdentity(obj) {
@@ -514,6 +543,7 @@
 
     entries.forEach(function (entry) {
       renderTrigger(entry.work, entry);
+      renderFieldErrors(entry);
     });
 
     if (missingCount) {
