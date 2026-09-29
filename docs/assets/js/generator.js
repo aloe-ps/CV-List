@@ -870,6 +870,7 @@
             added: toDateInput(item.publishedAt),
             genre: detectGenre(item.title) || detectGenre(playlistTitle)
           });
+          work.dirty = true;
           if (!first) first = work;
         });
         activateWork(first, false);
