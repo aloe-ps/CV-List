@@ -791,7 +791,7 @@
   }
 
   function knownVideoIds() {
-    var ids = {};
+    var ids = Object.create(null);
     allWorks.forEach(function (w) {
       var id = WORKS.parseYouTubeId(w.youtube);
       if (id) ids[id] = true;
