@@ -1436,6 +1436,78 @@ p {
   align-self: flex-start;
 }
 
+.bulk-card[hidden] {
+  display: none;
+}
+
+.bulk-card .gen-card__title {
+  flex-wrap: wrap;
+}
+
+.bulk-card__count {
+  margin-left: auto;
+  font-weight: 400;
+}
+
+.bulk-card__hint {
+  margin: -4px 0 16px;
+}
+
+.bulk-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.bulk-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.bulk-row > .field__control,
+.bulk-row__select {
+  flex: 1;
+  min-width: 0;
+}
+
+.bulk-row__select {
+  display: block;
+}
+
+.bulk-row__select select {
+  width: 100%;
+  height: 44px;
+}
+
+.bulk-apply {
+  flex: 0 0 auto;
+}
+
+.bulk-footer {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--md-outline-variant);
+}
+
+.bulk-scope {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  margin-right: auto;
+}
+
+.bulk-scope .bulk-row__select select {
+  height: 36px;
+  min-width: 0;
+  font-size: 13px;
+}
+
 .preview-card {
   position: sticky;
   top: 80px;

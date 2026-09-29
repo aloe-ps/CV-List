@@ -18,7 +18,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="assets/css/style.css?v=5" />
+  <link rel="stylesheet" href="assets/css/style.css?v=6" />
 </head>
 <body>
 
@@ -47,7 +47,7 @@
       <div class="steps">
         <div class="step">
           <span class="step__num">1</span>
-          <span class="step__body">作品をアコーディオンで展開して作品情報を入力すると、右側に登録する作品すべてのJSONが自動生成されます。</span>
+          <span class="step__body">作品をアコーディオンで展開して作品情報を入力すると、右側に登録する作品すべてのJSONが自動生成されます。作品を2つ以上登録すると「一括編集」で作者・ジャンル・コミュニティをまとめて設定できます。</span>
         </div>
         <div class="step">
           <span class="step__num">2</span>
@@ -63,6 +63,80 @@
     <div class="gen-layout">
 
       <div class="gen-form">
+        <div class="gen-card">
+          <div class="gen-card__title">
+            <span class="material-symbols-outlined">playlist_play</span>
+            プレイリストから一括追加
+          </div>
+          <div class="youtube-row">
+            <input class="field__control" id="playlist-url" type="url" placeholder="https://www.youtube.com/playlist?list=PLxxxx" />
+            <button class="btn btn--tonal btn--small" id="playlist-btn" type="button">
+              <span class="material-symbols-outlined">auto_awesome</span>
+              取り込む
+            </button>
+          </div>
+          <span class="field__hint" id="playlist-hint">再生リストの動画を1本ずつ作品フォームとして追加します（タイトル・概要・公開日を自動入力、ジャンルは判別できた場合のみ）。著者は自動入力されないため、取り込み後に各作品へ入力してください。登録済みの動画はスキップします。</span>
+        </div>
+
+        <section class="gen-card bulk-card" id="bulk-card" aria-labelledby="bulk-card-title" hidden>
+          <div class="gen-card__title" id="bulk-card-title">
+            <span class="material-symbols-outlined">drive_file_move</span>
+            一括編集
+            <span class="chip bulk-card__count" id="bulk-count">0作品</span>
+          </div>
+          <p class="field__hint bulk-card__hint">作者・ジャンル・コミュニティを、入力中の作品へまとめて反映します。反映前の値は上書きされます。</p>
+
+          <div class="bulk-fields">
+            <label class="field">
+              <span class="field__label type-label-large">作者</span>
+              <div class="bulk-row">
+                <input class="field__control" type="text" data-bulk-field="author" placeholder="例: JapEn Project" />
+                <button class="btn btn--tonal btn--small bulk-apply" type="button" data-bulk-apply="author" aria-label="作者を作品に一括適用">適用</button>
+              </div>
+            </label>
+
+            <label class="field">
+              <span class="field__label type-label-large">ジャンル</span>
+              <div class="bulk-row">
+                <span class="select bulk-row__select">
+                  <select class="field__control" data-bulk-field="genre">
+                    <option value="">選択してください</option>
+                    <option value="CV">CV</option>
+                    <option value="SV">SV</option>
+                    <option value="PV">PV</option>
+                  </select>
+                </span>
+                <button class="btn btn--tonal btn--small bulk-apply" type="button" data-bulk-apply="genre" aria-label="ジャンルを作品に一括適用">適用</button>
+              </div>
+            </label>
+
+            <label class="field">
+              <span class="field__label type-label-large">コミュニティ</span>
+              <div class="bulk-row">
+                <input class="field__control" type="text" data-bulk-field="communities" placeholder="例: JEB, ESP" />
+                <button class="btn btn--tonal btn--small bulk-apply" type="button" data-bulk-apply="communities" aria-label="コミュニティを作品に一括適用">適用</button>
+              </div>
+              <span class="field__hint">複数の場合はカンマ区切りで入力します（例: JEB, ESP）</span>
+            </label>
+          </div>
+
+          <div class="bulk-footer">
+            <label class="field bulk-scope" for="bulk-scope">
+              <span class="field__label type-label-medium">反映範囲</span>
+              <span class="select bulk-row__select">
+                <select id="bulk-scope">
+                  <option value="all">すべての作品</option>
+                  <option value="empty">未入力の作品のみ</option>
+                </select>
+              </span>
+            </label>
+            <button class="btn btn--tonal btn--small" type="button" data-bulk-apply="all">
+              <span class="material-symbols-outlined">done_all</span>
+              まとめて適用
+            </button>
+          </div>
+        </section>
+
         <div class="work-acc" id="work-accordion"></div>
 
         <button class="btn btn--tonal btn--small work-add" type="button" data-add-work aria-label="登録する作品を追加">
@@ -99,15 +173,16 @@
                   </label>
 
                   <label class="field">
-                    <span class="field__label type-label-large">ジャンル</span>
+                    <span class="field__label type-label-large">ジャンル<span class="req">*</span></span>
                     <span class="select" style="width:100%">
-                      <select class="field__control" data-field="genre" style="height:44px;width:100%">
+                      <select class="field__control" data-field="genre" style="height:44px;width:100%" required>
                         <option value="">選択してください</option>
                         <option value="CV">CV</option>
                         <option value="SV">SV</option>
                         <option value="PV">PV</option>
                       </select>
                     </span>
+                    <span class="field__error">ジャンルは必須です</span>
                     <span class="field__hint">CV / SV / PV のいずれかを選択</span>
                   </label>
 
@@ -125,12 +200,14 @@
                         自動入力
                       </button>
                     </div>
+                    <span class="field__error" data-role="youtube-error">YouTube URLは必須です</span>
                     <span class="field__hint" data-role="youtube-hint">youtu.be / youtube.com のURLを入力。貼り付けるとタイトル・概要・公開日を自動入力します。</span>
                   </label>
 
                   <label class="field">
                     <span class="field__label type-label-large">作者<span class="req">*</span></span>
                     <input class="field__control" data-field="author" type="text" placeholder="例: JapEn Project" />
+                    <span class="field__error">作者は必須です</span>
                   </label>
 
                   <label class="field">
@@ -217,8 +294,8 @@
   <div class="toast" id="toast" role="status"></div>
 
   <script src="assets/js/config.js?v=2"></script>
-  <script src="assets/js/works.js?v=2"></script>
+  <script src="assets/js/works.js?v=3"></script>
   <script src="assets/js/theme.js?v=2"></script>
-  <script src="assets/js/generator.js?v=6"></script>
+  <script src="assets/js/generator.js?v=8"></script>
 </body>
 </html>
