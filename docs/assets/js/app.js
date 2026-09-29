@@ -161,7 +161,7 @@ function render() {
     });
 
   els.count.textContent =
-    works.length + " 件の作品" + (q ? "（検索: " + esc(state.query.trim()) + "）" : "");
+    works.length + " 件の作品" + (q ? "（検索: " + state.query.trim() + "）" : "");
 
   var html = "";
   if (!works.length) {
