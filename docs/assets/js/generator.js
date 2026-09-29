@@ -12,6 +12,7 @@
   var playlistBusy = false;
   var PLAYLIST_PAGE_SIZE = 50;
   var PLAYLIST_MAX_ITEMS = 500;
+  var ISSUE_BODY_LIMIT = 60000;
 
   var BULK_FIELDS = {
     author: { label: "作者" },
@@ -501,7 +502,7 @@
   function highlight(json) {
     var out = esc(json);
     out = out
-      .replace(/(&quot;(?:\\.|[^&])*?&quot;)(\s*:)?/g, function (m, str, colon) {
+      .replace(/(&quot;(?:\\.|&(?:amp|lt|gt|quot|#39);|[^&])*?&quot;)(\s*:)?/g, function (m, str, colon) {
         return colon ? '<span class="k">' + str + "</span>" + colon : '<span class="s">' + str + "</span>";
       })
       .replace(/(:\s*)(-?\d+(?:\.\d+)?(?:e[+-]?\d+)?)/gi, '$1<span class="n">$2</span>')
@@ -556,7 +557,7 @@
       setValidityChip(els.validity, "OK", "ok");
     }
 
-    updateIssueParams();
+    updateIssueParams(entries, json);
     return { entries: entries, json: json, missingCount: missingCount, duplicateCount: duplicateCount };
   }
 
@@ -782,7 +783,7 @@
         return r.json();
       })
       .then(function (json) {
-        if (!json || !Array.isArray(json.items)) {
+        if (!json || json.error || !Array.isArray(json.items)) {
           throw new Error((json && json.error) || "playlist notfound");
         }
         return json;
@@ -790,7 +791,7 @@
   }
 
   function knownVideoIds() {
-    var ids = {};
+    var ids = Object.create(null);
     allWorks.forEach(function (w) {
       var id = WORKS.parseYouTubeId(w.youtube);
       if (id) ids[id] = true;
@@ -869,6 +870,7 @@
             added: toDateInput(item.publishedAt),
             genre: detectGenre(item.title) || detectGenre(playlistTitle)
           });
+          work.dirty = true;
           if (!first) first = work;
         });
         activateWork(first, false);
@@ -1070,20 +1072,22 @@
     }, 2200);
   }
 
-  function updateIssueParams() {
+  function updateIssueParams(entries, json) {
     if (!issueLink) return;
-    var entries = collectEntries();
-    var json = stringifyOutput(entries);
+    if (!entries || !json) {
+      entries = collectEntries();
+      json = stringifyOutput(entries);
+    }
     var title =
       entries.length > 1
         ? "作品追加: " + entries.length + "作品"
         : "作品追加: " + (entries[0].obj.title || "無題");
-    issueLink.href =
-      issueBase +
-      "/issues/new?title=" +
-      encodeURIComponent(title) +
-      "&body=" +
-      encodeURIComponent("```json\n" + json + "\n```");
+    var body = "```json\n" + json + "\n```";
+    var tooLong = body.length > ISSUE_BODY_LIMIT;
+    var href = issueBase + "/issues/new?title=" + encodeURIComponent(title);
+    if (!tooLong) href += "&body=" + encodeURIComponent(body);
+    if (issueLink.href !== href) issueLink.href = href;
+    if (els.issueHint) els.issueHint.hidden = !tooLong;
   }
 
   function setupGithubLink() {
@@ -1113,7 +1117,9 @@
     issueLink.target = "_blank";
     issueLink.rel = "noopener noreferrer";
     issueLink.innerHTML = icon("question_answer") + "Issueで提案";
-    issueLink.addEventListener("click", updateIssueParams);
+    issueLink.addEventListener("click", function () {
+      updateIssueParams();
+    });
     btn.insertAdjacentElement("afterend", issueLink);
     updateIssueParams();
   }
@@ -1140,6 +1146,7 @@
     els.playlistUrl = document.getElementById("playlist-url");
     els.playlistBtn = document.getElementById("playlist-btn");
     els.playlistHint = document.getElementById("playlist-hint");
+    els.issueHint = document.getElementById("issue-hint");
     if (els.playlistHint) els.playlistHintText = els.playlistHint.textContent;
     if (els.playlistBtn) {
       els.playlistBtn.addEventListener("click", importPlaylist);
