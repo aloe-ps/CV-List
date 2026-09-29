@@ -1,6 +1,8 @@
 var WORKS = (function () {
   var GENRES = ["CV", "SV", "PV"];
 
+  var PLAYLIST_ID_RE = /^[A-Za-z0-9_-]{13,128}$/;
+
   var DEFAULT_WORKS = [
     {
       id: "MQaIQ-U6oSk",
@@ -32,7 +34,7 @@ var WORKS = (function () {
   function parsePlaylistId(url) {
     if (!url) return null;
     var raw = String(url).trim();
-    if (/^[A-Za-z0-9_-]{10,128}$/.test(raw)) return raw;
+    if (PLAYLIST_ID_RE.test(raw)) return raw;
     var u;
     try {
       u = new URL(raw);
@@ -51,7 +53,7 @@ var WORKS = (function () {
     ];
     if (hosts.indexOf(host) === -1) return null;
     var list = u.searchParams.get("list");
-    return list && /^[A-Za-z0-9_-]{10,128}$/.test(list) ? list : null;
+    return list && PLAYLIST_ID_RE.test(list) ? list : null;
   }
 
   function thumbUrl(id, size) {
