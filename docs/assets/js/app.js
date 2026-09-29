@@ -138,7 +138,7 @@ function groupKeysOf(w, key) {
 }
 
 function groupSorted(works, key) {
-  var map = {};
+  var map = Object.create(null);
   works.forEach(function (w) {
     groupKeysOf(w, key).forEach(function (k) {
       (map[k] = map[k] || []).push(w);
