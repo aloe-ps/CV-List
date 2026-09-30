@@ -7,16 +7,23 @@
   "scripts": {
     "serve": "npx http-server docs -p 8080 -c-1",
     "typecheck": "tsc --noEmit",
-    "build": "npm run build:dist && npm run build:browser",
+    "build": "vite build",
     "build:dist": "tsc",
-    "build:browser": "tsc -p tsconfig.browser.json && node scripts/build-works-browser.mjs",
-    "test": "npm run build && node --test \"dist/tests/*.test.js\"",
+    "test": "npm run build:dist && node --test \"dist/tests/*.test.js\"",
     "deploy:worker": "wrangler deploy --config worker/wrangler.toml"
   },
   "devDependencies": {
     "@types/node": "^26.6.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
     "http-server": "^14.1.1",
     "typescript": "^7.0.2",
+    "vite": "^8.3.1",
     "wrangler": "^4.138.0"
+  },
+  "dependencies": {
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
   }
 }
