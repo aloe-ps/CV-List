@@ -1,4 +1,6 @@
 node_modules/
+dist/
+.test-dist/
 .wrangler/
 worker/.wrangler/
 .DS_Store
