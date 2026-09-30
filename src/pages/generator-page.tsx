@@ -53,7 +53,7 @@ import type { RepeaterKind, WorkFormCallbacks, WorkFormState } from "../componen
 const AUTOFILL_DEBOUNCE_MS = 900;
 const ISSUE_BODY_LIMIT = 60000;
 const METADATA_UPGRADE_HINT =
-  "概要・公開日も自動入力するには、docs/assets/js/config.js の youtubeMetadataEndpoint にプロキシURL（worker/ をデプロイ）を設定してください。APIキーがクライアントに公開されません。";
+  "概要・公開日も自動入力するには、src/config.ts の youtubeMetadataEndpoint にプロキシURL（worker/ をデプロイ）を設定してください。APIキーがクライアントに公開されません。";
 
 interface PendingFetch {
   timer: number | null;
@@ -673,7 +673,7 @@ export function GeneratorPage(): React.JSX.Element {
             <div className="step">
               <span className="step__num">3</span>
               <span className="step__body">
-                「GitHubで編集」を開き、リポジトリの <code id="step-datafile">docs/data/works.json</code> の{" "}
+                「GitHubで編集」を開き、リポジトリの <code id="step-datafile">public/data/works.json</code> の{" "}
                 <code>works</code> 配列へ作品オブジェクトを追加し、Pull Requestを送ってください。
               </span>
             </div>
@@ -760,7 +760,7 @@ export function GeneratorPage(): React.JSX.Element {
 
       <footer className="footer container">
         <p>
-          コピーしたデータは <code>docs/data/works.json</code> に追加されます。
+          コピーしたデータは <code>public/data/works.json</code> に追加されます。
         </p>
       </footer>
       <ToastView toast={toast} />

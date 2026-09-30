@@ -18,7 +18,7 @@ export const SITE_CONFIG: SiteConfig = {
   owner: "aloe-ps",
   repo: "CV-List",
   branch: "master",
-  dataFile: "docs/data/works.json",
+  dataFile: "public/data/works.json",
   siteTitle: "PENSPINNING-FILMS-LIST",
   youtubeMetadataEndpoint: "https://youtube-metadata.aloeps314.workers.dev/",
   youtubeApiKey: "",

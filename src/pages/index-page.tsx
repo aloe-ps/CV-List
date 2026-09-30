@@ -265,7 +265,7 @@ export function IndexPage(): React.JSX.Element {
 
       <footer className="footer container">
         <p>
-          作品データは <Icon name="data_object" /> <code>docs/data/works.json</code> で管理されています。
+          作品データは <Icon name="data_object" /> <code>public/data/works.json</code> で管理されています。
         </p>
       </footer>
       <ToastView toast={toast} />

@@ -1,13 +1,10 @@
 /**
  * 作品データ層の純粋ロジック (TypeScript)。
  *
- * ブラウザ公開物 docs/assets/js/works.js の単一ソース。
- * `npm run build:browser` が本ファイルを tsc で ESM に変換し、
- * scripts/build-works-browser.mjs が classic script (var WORKS) に整形して
- * docs/assets/js/works.js を生成する。works.js の直接編集は禁止。
+ * ブラウザ向けには Vite ビルドで各ページのバンドルに含まれる。
  * 有効なデータに対する出力は旧 hand-written 版と等価 (tests/ で検証)。
  * 相違点は不正・欠損データに対する防御のみ (空レコード扱い・未知要素の除去)。
- * DOM・fetch の既定値以外の副作用は持たず、将来の React 移行時にも再利用できる。
+ * DOM・fetch の既定値以外の副作用は持たない。
  */
 import type { Genre, Music, NormalizedWork, RawWork, WorksData } from "./types.js";
 

@@ -365,7 +365,7 @@ export function JsonPreview({
             <span className="material-symbols-outlined" style={{ fontSize: "16px", verticalAlign: "-3px" }}>
               info
             </span>{" "}
-            GitHubのリポジトリ情報が未設定です。docs/assets/js/config.js の owner / repo
+            GitHubのリポジトリ情報が未設定です。src/config.ts の owner / repo
             を設定すると「GitHubで編集」リンクが表示されます。
           </>
         )}
