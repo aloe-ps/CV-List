@@ -1,0 +1,2 @@
+# 改行コードは LF に統一する (GitHub Pages 成果物の差分ノイズ防止)。
+* text=auto eol=lf
