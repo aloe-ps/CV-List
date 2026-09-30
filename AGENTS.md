@@ -12,11 +12,10 @@
 
 ## Project Structure
 
-- `docs/` は完全な静的サイトです。バンドラーは使用していません。`index.html`、`work.html`、`generator.html` は、`config.js` → `works.js` → `theme.js` → 各ページのコントローラーの順でスクリプトを読み込みます。共有グローバル変数を変更する際は、この順序を維持してください。
-- `docs/assets/js/works.js` は生成物です。直接編集せず、`src/works-core.ts` を編集して `npm run build:browser` で再生成してください（`scripts/build-works-browser.mjs` が classic script 化します）。
-
-- `docs/data/works.json` が実行時の一次情報源（Source of Truth）です。各ページは `cache: "no-store"` を指定してこれを取得しており、カタログデータはバンドルされていません。
-
+- `index.html` / `work.html` / `generator.html`（リポジトリ直下）は Vite の MPA エントリです。React + TypeScript で実装され、`npm run build` で `docs/` に静的ファイルとして出力されます。出力先 URL（`index.html`、`work.html?id=`、`generator.html?id=`）は従来通りです。
+- `src/` が開発用コードです。`main-*.tsx`（マウント）、`pages/`（3ページ）、`components/`（共通UI・ジェネレーター部品）、`catalog.ts`（検索・絞り込み・並び替え）、`youtube.ts`（メタデータ取得）、`generator-model.ts`（収集・検証・一括編集）、`works-core.ts`（正規化・取得）、`types.ts`（型定義）、`config.ts`（サイト設定）、`theme.tsx`（テーマ）で構成されます。状態管理ライブラリは使わず素の React のみです。
+- `public/` はそのまま `docs/` 直下にコピーされます。`public/data/works.json` が作品データの一次情報源（Source of Truth）で、出力は `docs/data/works.json` です。`public/assets/css/style.css` は従来と同一 URL で配信されます。
+- `docs/` はビルド成果物であり、GitHub Pages（legacy publish）がそのまま公開します。**`docs/` 配下は直接編集しないでください。** ビルドは `emptyOutDir: true` のため `docs/` を一旦全削除して再生成します（失敗時は再実行で復元できます）。
 - `worker/` は YouTube メタデータとプレイリストを処理するための独立した Cloudflare Worker です。`GET /?url=` は動画 URL（1本の snippet）にも再生リスト URL（`playlistItems` + `videos.list`、最大50件/回、`maxResults`・`pageToken` で分割）にも対応します。静的サイトと一緒にビルドやデプロイが行われることはありません。
 
 ## Command
@@ -29,9 +28,9 @@
 
 - TypeScript の型チェック、ビルド、テストには以下のスクリプトを使用してください。
   - 型チェック: `npm run typecheck`（`tsc --noEmit`、`strict` 有効）
-  - ビルド: `npm run build`（`build:dist` で `src/` → git 管理外の `dist/`、`build:browser` で `src/works-core.ts` → `docs/assets/js/works.js` を生成）
-  - テスト: `npm test`（ビルド後に `node --test` で `dist/tests/*.test.js` を実行。成果物テストが `docs/assets/js/works.js` と `src/` の等価性も検証します）
-  - ブラウザ成果物のみ再生成: `npm run build:browser`（`src/` 変更時は実行し、生成された `works.js` もコミットしてください）
+  - 本番ビルド: `npm run build`（`vite build`、`docs/` に出力。`docs/` は成果物のため直接編集しない）
+  - テスト: `npm test`（`tsc` で `dist/` にコンパイル後、`node --test` で `dist/tests/*.test.js` を実行）
+  - 依存追加時: 必要性を確認してから追加し、ロックファイルを更新する
 
 - リント、CI 用のスクリプトは用意されていません。変更箇所の重点チェックを行う場合は、以下のコマンドを使用してください。
 
@@ -55,12 +54,12 @@
 
 - `works.json` のトップレベルは `{ "version": 1, "works": [...] }` という構造になっています。ジェネレーターは作品オブジェクトを出力し、複数作品を登録している場合はそれらをカンマ区切りで連結した文字列として出力します。配列の外枠 `[ ]` は出力しないので、そのまま `works` 配列の中に貼り付けられます。
 
-- 作品データ層の単一ソースは `src/works-core.ts` です。`docs/assets/js/works.js` 内のブラウザノーマライザーは、`CV`、`SV`、`PV` のジャンルのみを許可し、未知のフィールドは破棄します。スキーマを変更する際は、ノーマライザー、ジェネレーター、および影響を受けるすべてのページをまとめて更新する必要があります。
+- 作品データ層の単一ソースは `src/works-core.ts` です。ブラウザの正規化処理は、`CV`、`SV`、`PV` のジャンルのみを許可し、未知のフィールドは破棄します。スキーマを変更する際は、ノーマライザー、ジェネレーター、および影響を受けるすべてのページをまとめて更新する必要があります。
 
 - 作品 ID（Work ID）は一覧、詳細、編集のフローを紐付けます。ID は `id`、YouTube ID、タイトルスラグの順で解決されます。一度公開した ID は重複を避け、安定して保持してください。
 
 ## Worker and secrets
 
-- `YOUTUBE_API_KEY` と `ALLOWED_ORIGIN` はリモートの Worker シークレットとして設定してください。ブラウザ側のコードは公開されるため、`docs/assets/js/config.js` に空でない YouTube Data API キーを絶対に配置しないでください。
+- `YOUTUBE_API_KEY` と `ALLOWED_ORIGIN` はリモートの Worker シークレットとして設定してください。ブラウザ側のコードは公開されるため、`src/config.ts` の `youtubeApiKey` に空でない YouTube Data API キーを絶対に配置しないでください。
 
 - `ALLOWED_ORIGIN` が設定されていない場合、Worker はすべてのオリジンからのアクセスを許可します。本番環境では、デプロイ先サイトの正確なオリジンを設定してください。
