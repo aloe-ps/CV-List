@@ -138,7 +138,7 @@ function groupKeysOf(w, key) {
 }
 
 function groupSorted(works, key) {
-  var map = {};
+  var map = Object.create(null);
   works.forEach(function (w) {
     groupKeysOf(w, key).forEach(function (k) {
       (map[k] = map[k] || []).push(w);
@@ -161,7 +161,7 @@ function render() {
     });
 
   els.count.textContent =
-    works.length + " 件の作品" + (q ? "（検索: " + esc(state.query.trim()) + "）" : "");
+    works.length + " 件の作品" + (q ? "（検索: " + state.query.trim() + "）" : "");
 
   var html = "";
   if (!works.length) {

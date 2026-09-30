@@ -1,6 +1,8 @@
 var WORKS = (function () {
   var GENRES = ["CV", "SV", "PV"];
 
+  var PLAYLIST_ID_RE = /^[A-Za-z0-9_-]{13,128}$/;
+
   var DEFAULT_WORKS = [
     {
       id: "MQaIQ-U6oSk",
@@ -27,6 +29,31 @@ var WORKS = (function () {
       /(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{6,15})/,
     );
     return m ? m[1] : null;
+  }
+
+  function parsePlaylistId(url) {
+    if (!url) return null;
+    var raw = String(url).trim();
+    if (PLAYLIST_ID_RE.test(raw)) return raw;
+    var u;
+    try {
+      u = new URL(raw);
+    } catch (e) {
+      return null;
+    }
+    if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+    var host = u.hostname.toLowerCase();
+    var hosts = [
+      "youtube.com",
+      "www.youtube.com",
+      "m.youtube.com",
+      "music.youtube.com",
+      "youtu.be",
+      "www.youtu.be",
+    ];
+    if (hosts.indexOf(host) === -1) return null;
+    var list = u.searchParams.get("list");
+    return list && PLAYLIST_ID_RE.test(list) ? list : null;
   }
 
   function thumbUrl(id, size) {
@@ -85,6 +112,7 @@ var WORKS = (function () {
     load: load,
     byId: byId,
     parseYouTubeId: parseYouTubeId,
+    parsePlaylistId: parsePlaylistId,
     thumbUrl: thumbUrl,
     normalize: normalize,
     GENRES: GENRES,
