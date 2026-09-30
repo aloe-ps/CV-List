@@ -23,6 +23,8 @@
 // 応答:    { "type": "playlist", "playlistId": "...", "title": "...", "totalResults": 12,
 //            "nextPageToken": "", "items": [ { "videoId": "...", "title": "...",
 //            "description": "...", "publishedAt": "...", "position": 0 } ] }
+//            title は先頭ページ（pageToken なし）でのみ取得します。
+//            2ページ目以降は同じ値になるため API を無駄に消費しません。
 
 var VIDEO_ID_RE = /^[A-Za-z0-9_-]{11}$/;
 var PLAYLIST_ID_RE = /^[A-Za-z0-9_-]{10,128}$/;
@@ -111,6 +113,14 @@ function parseBoundedInt(value, min, max, fallback) {
   return n >= min && n <= max ? n : null;
 }
 
+// YouTube Data API のエラーステータスをクライアントへ伝える。
+// 入力に起因するもの（400 / 404）だけそのまま返し、
+// 認証・レート制限・障害（401 / 403 / 429 / 5xx など）は
+// 呼び出し側の入力では直せないため 502 にまとめる。
+function upstreamStatus(status) {
+  return status === 400 || status === 404 ? status : 502;
+}
+
 // 動画のメタデータをIDごとに集める（videos.list は ID をまとめて1回で取得できる）
 // 取得に成功したかどうかも返す。失敗時は呼び出し側でプレイリストの snippet にフォールバックする。
 async function fetchVideoSnippets(ids, key) {
@@ -188,17 +198,26 @@ async function handlePlaylist(playlistId, searchParams, request, env) {
     encodeURIComponent(key);
   if (pageToken) api += "&pageToken=" + encodeURIComponent(pageToken);
 
+  var res;
   var json;
   try {
-    var res = await fetch(api);
+    res = await fetch(api);
     json = await res.json();
   } catch (e) {
     return respond({ error: "upstream fetch failed", items: [] }, 502, request, env);
   }
 
-  if (json && json.error) {
-    var status = json.error.code === 404 ? 404 : 400;
-    return respond({ error: json.error.message || "playlist not found", items: [] }, status, request, env);
+  if (!res.ok || (json && json.error)) {
+    var code = res.ok && json && json.error ? json.error.code : res.status;
+    return respond(
+      {
+        error: (json && json.error && json.error.message) || "playlist not found",
+        items: []
+      },
+      upstreamStatus(code),
+      request,
+      env
+    );
   }
 
   var entries = (json.items || []).filter(function (item) {
@@ -232,7 +251,7 @@ async function handlePlaylist(playlistId, searchParams, request, env) {
     {
       type: "playlist",
       playlistId: playlistId,
-      title: await fetchPlaylistTitle(playlistId, key),
+      title: pageToken ? "" : await fetchPlaylistTitle(playlistId, key),
       totalResults: json.pageInfo ? json.pageInfo.totalResults : items.length,
       nextPageToken: json.nextPageToken || "",
       items: items
@@ -311,12 +330,27 @@ export default {
       "&key=" +
       encodeURIComponent(key);
 
+    var res;
     var json;
     try {
-      var res = await fetch(api);
+      res = await fetch(api);
       json = await res.json();
     } catch (e) {
       return respond({ error: "upstream fetch failed", title: "", description: "", publishedAt: "" }, 502, request, env);
+    }
+
+    if (!res.ok) {
+      return respond(
+        {
+          error: (json && json.error && json.error.message) || "video request failed",
+          title: "",
+          description: "",
+          publishedAt: ""
+        },
+        upstreamStatus(res.status),
+        request,
+        env
+      );
     }
 
     var s = json.items && json.items[0] && json.items[0].snippet;
