@@ -2,13 +2,21 @@
   "name": "penspinning-films-list",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "description": "",
   "scripts": {
-    "serve": "npx http-server site -p 8080 -c-1",
+    "serve": "npx http-server docs -p 8080 -c-1",
+    "typecheck": "tsc --noEmit",
+    "build": "npm run build:dist && npm run build:browser",
+    "build:dist": "tsc",
+    "build:browser": "tsc -p tsconfig.browser.json && node scripts/build-works-browser.mjs",
+    "test": "npm run build && node --test \"dist/tests/*.test.js\"",
     "deploy:worker": "wrangler deploy --config worker/wrangler.toml"
   },
   "devDependencies": {
+    "@types/node": "^26.6.3",
     "http-server": "^14.1.1",
+    "typescript": "^7.0.2",
     "wrangler": "^4.138.0"
   }
 }

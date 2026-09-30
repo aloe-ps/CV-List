@@ -12,7 +12,8 @@
 
 ## Project Structure
 
-- `docs/` は完全な静的サイトです。バンドラーやビルド出力はありません。`index.html`、`work.html`、`generator.html` は、`config.js` → `works.js` → `theme.js` → 各ページのコントローラーの順でスクリプトを読み込みます。共有グローバル変数を変更する際は、この順序を維持してください。
+- `docs/` は完全な静的サイトです。バンドラーは使用していません。`index.html`、`work.html`、`generator.html` は、`config.js` → `works.js` → `theme.js` → 各ページのコントローラーの順でスクリプトを読み込みます。共有グローバル変数を変更する際は、この順序を維持してください。
+- `docs/assets/js/works.js` は生成物です。直接編集せず、`src/works-core.ts` を編集して `npm run build:browser` で再生成してください（`scripts/build-works-browser.mjs` が classic script 化します）。
 
 - `docs/data/works.json` が実行時の一次情報源（Source of Truth）です。各ページは `cache: "no-store"` を指定してこれを取得しており、カタログデータはバンドルされていません。
 
@@ -22,11 +23,17 @@
 
 - Node.js 22 以上（固定された Wrangler で必要）を使用し、`npm ci` を実行してロックファイル通りの正確なパッケージをインストールしてください。
 
-- サイトのプレビューは `npx --no-install http-server docs -p 8080 -c-1` で行います。`npm run serve` は `site` ターゲットが存在しないため使用しないでください。また、`file://` 経由で HTML を開くのではなく、HTTP 経由で配信してください。
+- サイトのプレビューは `npx --no-install http-server docs -p 8080 -c-1`（または `npm run serve`）で行います。`file://` 経由で HTML を開くのではなく、HTTP 経由で配信してください。
 
 - Worker をローカルで実行するには `npx wrangler dev --config worker/wrangler.toml` を使用し、デプロイするには `npm run deploy:worker` を実行します。リポジトリのルートディレクトリから他の Wrangler コマンドを実行する場合も、`worker/wrangler.toml` 内のコメントで省略されている場合を含め、`--config worker/wrangler.toml` の指定が必要です。
 
-- ビルド、リント、型チェック、テスト、CI 用のスクリプトは用意されていません。変更箇所の重点チェックを行う場合は、以下のコマンドを使用してください。
+- TypeScript の型チェック、ビルド、テストには以下のスクリプトを使用してください。
+  - 型チェック: `npm run typecheck`（`tsc --noEmit`、`strict` 有効）
+  - ビルド: `npm run build`（`build:dist` で `src/` → git 管理外の `dist/`、`build:browser` で `src/works-core.ts` → `docs/assets/js/works.js` を生成）
+  - テスト: `npm test`（ビルド後に `node --test` で `dist/tests/*.test.js` を実行。成果物テストが `docs/assets/js/works.js` と `src/` の等価性も検証します）
+  - ブラウザ成果物のみ再生成: `npm run build:browser`（`src/` 変更時は実行し、生成された `works.js` もコミットしてください）
+
+- リント、CI 用のスクリプトは用意されていません。変更箇所の重点チェックを行う場合は、以下のコマンドを使用してください。
 
   - JSON 変更のパースチェック: `node -e "JSON.parse(require('fs').readFileSync('docs/data/works.json', 'utf8'))"`
 
@@ -48,7 +55,7 @@
 
 - `works.json` のトップレベルは `{ "version": 1, "works": [...] }` という構造になっています。ジェネレーターは作品オブジェクトを出力し、複数作品を登録している場合はそれらをカンマ区切りで連結した文字列として出力します。配列の外枠 `[ ]` は出力しないので、そのまま `works` 配列の中に貼り付けられます。
 
-- `docs/assets/js/works.js` 内のブラウザノーマライザーは、`CV`、`SV`、`PV` のジャンルのみを許可し、未知のフィールドは破棄します。スキーマを変更する際は、ノーマライザー、ジェネレーター、および影響を受けるすべてのページをまとめて更新する必要があります。
+- 作品データ層の単一ソースは `src/works-core.ts` です。`docs/assets/js/works.js` 内のブラウザノーマライザーは、`CV`、`SV`、`PV` のジャンルのみを許可し、未知のフィールドは破棄します。スキーマを変更する際は、ノーマライザー、ジェネレーター、および影響を受けるすべてのページをまとめて更新する必要があります。
 
 - 作品 ID（Work ID）は一覧、詳細、編集のフローを紐付けます。ID は `id`、YouTube ID、タイトルスラグの順で解決されます。一度公開した ID は重複を避け、安定して保持してください。
 
