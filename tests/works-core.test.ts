@@ -198,8 +198,8 @@ describe("loadWorks", () => {
 });
 
 describe("実データとの整合性", () => {
-  // dist/tests から見た docs/data/works.json (常にビルド成果物経由で実行する)。
-  const worksJsonUrl = new URL("../../docs/data/works.json", import.meta.url);
+  // .test-dist/tests から見た public/data/works.json (常にビルド成果物経由で実行する)。
+  const worksJsonUrl = new URL("../../public/data/works.json", import.meta.url);
   const raw: unknown = JSON.parse(readFileSync(worksJsonUrl, "utf8"));
 
   it("works.jsonが形式を満たし件数を保って正規化できる", () => {

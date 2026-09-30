@@ -5,11 +5,11 @@
   "type": "module",
   "description": "",
   "scripts": {
-    "serve": "npx http-server docs -p 8080 -c-1",
+    "serve": "vite preview --port 8080",
     "typecheck": "tsc --noEmit",
     "build": "vite build",
-    "build:dist": "tsc",
-    "test": "npm run build:dist && node --test \"dist/tests/*.test.js\"",
+    "build:tests": "tsc",
+    "test": "npm run build:tests && node --test \".test-dist/tests/*.test.js\"",
     "deploy:worker": "wrangler deploy --config worker/wrangler.toml"
   },
   "devDependencies": {
