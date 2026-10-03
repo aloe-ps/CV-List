@@ -20,7 +20,7 @@ import {
   readCatalogParams,
   writeCatalogParams,
 } from "../catalog.js";
-import type { GenreFilter, SortMode } from "../catalog.js";
+import type { GenreFilter, SortMode, ViewMode } from "../catalog.js";
 import { loadWorks, parseYouTubeId, thumbUrl } from "../works-core.js";
 import type { NormalizedWork } from "../types.js";
 
@@ -30,6 +30,23 @@ const GENRE_OPTIONS: Array<{ value: GenreFilter; label: string }> = [
   { value: "SV", label: "SV" },
   { value: "PV", label: "PV" },
 ];
+
+const VIEW_STORAGE_KEY = "catalog-view";
+
+function readStoredView(): ViewMode {
+  try {
+    return window.localStorage.getItem(VIEW_STORAGE_KEY) === "list" ? "list" : "grid";
+  } catch {
+    return "grid";
+  }
+}
+
+function readInitialView(search: string): ViewMode {
+  const params = new URLSearchParams(search);
+  if (params.get("view") === "list") return "list";
+  if (params.get("view") === "grid") return "grid";
+  return readStoredView();
+}
 
 function joinList(items: readonly string[]): string {
   if (!items.length) return "—";
@@ -110,18 +127,69 @@ function WorkCard({ work, index }: { work: NormalizedWork; index: number }): Rea
   );
 }
 
-function WorksGroup({ name, works }: { name: string; works: NormalizedWork[] }): React.JSX.Element {
+function WorkListRow({ work, index }: { work: NormalizedWork; index: number }): React.JSX.Element {
+  return (
+    <a
+      className="card card--clickable work-row"
+      style={{ "--i": index } as React.CSSProperties}
+      href={`work.html?id=${encodeURIComponent(work.id)}`}
+      aria-label={`${work.title} の詳細を見る`}
+    >
+      <div className="work-row__thumb">
+        <WorkThumb work={work} />
+        {work.genre && <span className="card__genre">{work.genre}</span>}
+      </div>
+      <div className="work-row__body">
+        <h2 className="card__title">{work.title}</h2>
+        {work.description && <p className="card__desc">{work.description}</p>}
+        <div className="work-row__meta">
+          <div className="meta-line">
+            <Icon name="person" />
+            <span>{work.author ? work.author : "作者不明"}</span>
+          </div>
+          <div className="meta-line">
+            <Icon name="groups" />
+            <span>{joinList(work.performers)}</span>
+          </div>
+          <MusicPreview work={work} />
+        </div>
+        <CommunitiesPreview work={work} />
+      </div>
+      <div className="work-row__action" aria-hidden="true">
+        <Icon name="arrow_forward" />
+      </div>
+    </a>
+  );
+}
+
+function WorksGroup({
+  name,
+  works,
+  view,
+}: {
+  name: string;
+  works: NormalizedWork[];
+  view: ViewMode;
+}): React.JSX.Element {
   return (
     <section aria-label={name}>
       <div className="group-title">
         <span className="group-title__name">{name}</span>
         <span className="group-title__count">{works.length} 件</span>
       </div>
-      <div className="works-grid">
-        {works.map((w, i) => (
-          <WorkCard key={w.id} work={w} index={i} />
-        ))}
-      </div>
+      {view === "list" ? (
+        <div className="works-list">
+          {works.map((w, i) => (
+            <WorkListRow key={w.id} work={w} index={i} />
+          ))}
+        </div>
+      ) : (
+        <div className="works-grid">
+          {works.map((w, i) => (
+            <WorkCard key={w.id} work={w} index={i} />
+          ))}
+        </div>
+      )}
     </section>
   );
 }
@@ -134,6 +202,7 @@ export function IndexPage(): React.JSX.Element {
   const [query, setQuery] = useState(() => readCatalogParams(window.location.search).query);
   const [sort, setSort] = useState<SortMode>("date");
   const [genre, setGenre] = useState<GenreFilter>("");
+  const [view, setView] = useState<ViewMode>(() => readInitialView(window.location.search));
   const [entered, setEntered] = useState(false);
   const enterTimer = useRef<number | null>(null);
 
@@ -145,6 +214,9 @@ export function IndexPage(): React.JSX.Element {
       const params = readCatalogParams(window.location.search);
       setSort(params.sort);
       setGenre(params.genre);
+      const urlView = new URLSearchParams(window.location.search).get("view");
+      const nextView = urlView === "list" || urlView === "grid" ? urlView : readStoredView();
+      setView(nextView);
       setEntered(true);
       if (enterTimer.current !== null) window.clearTimeout(enterTimer.current);
       enterTimer.current = window.setTimeout(() => setEntered(false), 700);
@@ -164,15 +236,24 @@ export function IndexPage(): React.JSX.Element {
 
   const updateQuery = (next: string): void => {
     setQuery(next);
-    writeCatalogParams({ query: next, genre }, sort);
+    writeCatalogParams({ query: next, genre }, sort, view);
   };
   const updateSort = (next: SortMode): void => {
     setSort(next);
-    writeCatalogParams({ query, genre }, next);
+    writeCatalogParams({ query, genre }, next, view);
   };
   const updateGenre = (next: GenreFilter): void => {
     setGenre(next);
-    writeCatalogParams({ query, genre: next }, sort);
+    writeCatalogParams({ query, genre: next }, sort, view);
+  };
+  const updateView = (next: ViewMode): void => {
+    setView(next);
+    writeCatalogParams({ query, genre }, sort, next);
+    try {
+      window.localStorage.setItem(VIEW_STORAGE_KEY, next);
+    } catch {
+      /* 保存できなくても表示は切り替える */
+    }
   };
 
   return (
@@ -245,6 +326,32 @@ export function IndexPage(): React.JSX.Element {
               ))}
             </span>
           </div>
+          <div className="toolbar__view">
+            <span className="segment" role="group" aria-label="表示形式を切り替え">
+              <button
+                type="button"
+                className={view === "grid" ? "segment__btn is-active" : "segment__btn"}
+                aria-pressed={view === "grid"}
+                aria-label="グリッド表示"
+                title="グリッド表示"
+                data-view="grid"
+                onClick={() => updateView("grid")}
+              >
+                <Icon name="grid_view" />
+              </button>
+              <button
+                type="button"
+                className={view === "list" ? "segment__btn is-active" : "segment__btn"}
+                aria-pressed={view === "list"}
+                aria-label="リスト表示"
+                title="リスト表示"
+                data-view="list"
+                onClick={() => updateView("list")}
+              >
+                <Icon name="view_list" />
+              </button>
+            </span>
+          </div>
           <div className="toolbar__count" id="result-count" role="status">
             {countText(filtered.length, query)}
           </div>
@@ -258,7 +365,7 @@ export function IndexPage(): React.JSX.Element {
               <span className="type-body-medium">条件を変えてお試しください</span>
             </div>
           ) : (
-            groups.map((g) => <WorksGroup key={g.name} name={g.name} works={g.works} />)
+            groups.map((g) => <WorksGroup key={g.name} name={g.name} works={g.works} view={view} />)
           )}
         </div>
       </main>

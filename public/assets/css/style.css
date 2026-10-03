@@ -2002,3 +2002,110 @@ html.is-theme-animating [data-theme-icon] {
     animation: none !important;
   }
 }
+
+/* ==========================================================================
+   Works view toggle (grid / list)
+   ========================================================================== */
+
+.card {
+  position: relative;
+}
+
+.toolbar__view {
+  display: flex;
+  align-items: center;
+}
+
+.toolbar__view .segment__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+}
+
+.toolbar__view .segment__btn .material-symbols-outlined {
+  font-size: 20px;
+}
+
+.works-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: 96px;
+}
+
+.work-row {
+  display: flex;
+  align-items: stretch;
+  gap: 16px;
+  padding: 12px;
+}
+
+.work-row__thumb {
+  position: relative;
+  flex: 0 0 220px;
+  width: 220px;
+  align-self: center;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.work-row__thumb .card__thumb {
+  border-radius: 8px;
+}
+
+.work-row__body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.work-row__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.work-row__action {
+  flex: 0 0 auto;
+  align-self: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  color: var(--md-primary);
+}
+
+.card--clickable:hover .work-row__action {
+  background: var(--md-secondary-container);
+}
+
+.work-row__action .material-symbols-outlined {
+  font-size: 22px;
+}
+
+.list.is-entering .work-row {
+  animation: card-enter 0.45s cubic-bezier(0.2, 0, 0, 1) both;
+  animation-delay: calc(min(var(--i, 0), 12) * 45ms);
+}
+
+@media (max-width: 599px) {
+  .work-row {
+    gap: 12px;
+    padding: 10px;
+  }
+
+  .work-row__thumb {
+    flex-basis: 128px;
+    width: 128px;
+  }
+
+  .work-row__action {
+    display: none;
+  }
+}

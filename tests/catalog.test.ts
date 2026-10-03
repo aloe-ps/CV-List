@@ -86,12 +86,20 @@ describe("readCatalogParams", () => {
       query: "a",
       sort: "author",
       genre: "CV",
+      view: "grid",
     });
     assert.deepEqual(readCatalogParams("?sort=xxx&genre=XX"), {
       query: "",
       sort: "date",
       genre: "",
+      view: "grid",
     });
-    assert.deepEqual(readCatalogParams(""), { query: "", sort: "date", genre: "" });
+    assert.deepEqual(readCatalogParams(""), { query: "", sort: "date", genre: "", view: "grid" });
+  });
+
+  it("表示形式を読み取り不正値はグリッドに戻す", () => {
+    assert.equal(readCatalogParams("?view=list").view, "list");
+    assert.equal(readCatalogParams("?view=grid").view, "grid");
+    assert.equal(readCatalogParams("?view=xxx").view, "grid");
   });
 });
