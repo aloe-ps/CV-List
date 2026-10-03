@@ -184,7 +184,6 @@ export function WorkFormItem({
 
   const titleInvalid = showErrors && missingSet.has("タイトル");
   const genreInvalid = showErrors && missingSet.has("ジャンル");
-  const authorInvalid = showErrors && missingSet.has("作者");
   const youtubeInvalid = showErrors && missingSet.has("YouTube URL");
   const youtubeErrorText =
     draft.youtube.trim() && youtubeInvalid
@@ -340,20 +339,16 @@ export function WorkFormItem({
               </span>
             </label>
 
-            <label className={authorInvalid ? "field has-error" : "field"}>
-              <span className="field__label type-label-large">
-                作者<span className="req">*</span>
-              </span>
+            <label className="field">
+              <span className="field__label type-label-large">作者（任意）</span>
               <input
                 className="field__control"
                 data-field="author"
                 type="text"
                 placeholder="例: JapEn Project"
                 value={draft.author}
-                aria-invalid={authorInvalid || undefined}
                 onChange={(e) => callbacks.onDraftChange({ author: e.target.value })}
               />
-              <span className="field__error">作者は必須です</span>
             </label>
 
             <label className="field">

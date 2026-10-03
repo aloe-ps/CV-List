@@ -131,12 +131,13 @@ export function collectWork(draft: WorkDraft, editId: string | null): CollectedW
   return obj;
 }
 
-/** 必須項目の不足ラベル一覧 (旧 validate と等価)。 */
-export function validateWork(obj: Pick<CollectedWork, "title" | "genre" | "author" | "youtube">): string[] {
+/** 必須項目の不足ラベル一覧 (旧 validate と等価。作者は任意のため対象外)。 */
+export function validateWork(
+  obj: Pick<CollectedWork, "title" | "genre" | "youtube"> & { author?: unknown },
+): string[] {
   const missing: string[] = [];
   if (!obj.title) missing.push("タイトル");
   if (!obj.genre) missing.push("ジャンル");
-  if (!obj.author) missing.push("作者");
   if (!obj.youtube) missing.push("YouTube URL");
   else if (!parseYouTubeId(obj.youtube)) missing.push("YouTube URL");
   return missing;
