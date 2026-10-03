@@ -8,6 +8,7 @@ import type { Genre, NormalizedWork } from "./types.js";
 export type SortMode = "date" | "author" | "performer" | "community";
 export type GenreFilter = Genre | "";
 export type GroupField = "author" | "performers" | "communities";
+export type ViewMode = "grid" | "list";
 
 export const SORT_TO_GROUP_FIELD: Record<Exclude<SortMode, "date">, GroupField> = {
   author: "author",
@@ -86,11 +87,12 @@ export function countText(count: number, query: string): string {
   return `${count} 件の作品` + (trimmed ? `（検索: ${trimmed}）` : "");
 }
 
-/** URLクエリ (?q=, ?sort=, ?genre=) を読み取る。 */
+/** URLクエリ (?q=, ?sort=, ?genre=, ?view=) を読み取る。 */
 export function readCatalogParams(search: string): {
   query: string;
   sort: SortMode;
   genre: GenreFilter;
+  view: ViewMode;
 } {
   const params = new URLSearchParams(search);
   const sortParam = params.get("sort");
@@ -101,11 +103,13 @@ export function readCatalogParams(search: string): {
   const genreParam = params.get("genre");
   const genre: GenreFilter =
     genreParam === "CV" || genreParam === "SV" || genreParam === "PV" ? genreParam : "";
-  return { query: params.get("q") ?? "", sort, genre };
+  const viewParam = params.get("view");
+  const view: ViewMode = viewParam === "list" ? "list" : "grid";
+  return { query: params.get("q") ?? "", sort, genre, view };
 }
 
 /** 検索条件をURLクエリに反映する (履歴は積まない)。 */
-export function writeCatalogParams(filter: CatalogFilter, sort: SortMode): void {
+export function writeCatalogParams(filter: CatalogFilter, sort: SortMode, view: ViewMode = "grid"): void {
   const url = new URL(window.location.href);
   if (filter.query) url.searchParams.set("q", filter.query);
   else url.searchParams.delete("q");
@@ -113,5 +117,7 @@ export function writeCatalogParams(filter: CatalogFilter, sort: SortMode): void 
   else url.searchParams.delete("sort");
   if (filter.genre) url.searchParams.set("genre", filter.genre);
   else url.searchParams.delete("genre");
+  if (view === "list") url.searchParams.set("view", "list");
+  else url.searchParams.delete("view");
   window.history.replaceState(null, "", url.toString());
 }

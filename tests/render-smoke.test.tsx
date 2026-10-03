@@ -43,6 +43,8 @@ describe("render smoke", () => {
       "search-input",
       "sort-select",
       "result-count",
+      "data-view",
+      "表示形式を切り替え",
     ]) {
       assert.ok(html.includes(text), text);
     }
