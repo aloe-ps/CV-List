@@ -14,22 +14,24 @@ import {
 } from "../components/ui.js";
 import {
   SORT_TO_GROUP_FIELD,
+  collectAddedYears,
+  collectFieldOptions,
+  countActiveFacets,
   countText,
+  effectiveGenres,
+  emptyCatalogFilter,
   filterAndSortWorks,
   groupWorks,
   readCatalogParams,
+  splitMultiValue,
   writeCatalogParams,
 } from "../catalog.js";
-import type { GenreFilter, SortMode, ViewMode } from "../catalog.js";
+import type { CatalogFilter, SortMode, ViewMode } from "../catalog.js";
 import { loadWorks, parseYouTubeId, thumbUrl } from "../works-core.js";
-import type { NormalizedWork } from "../types.js";
+import type { Genre, NormalizedWork } from "../types.js";
+import { copyText } from "../components/ui.js";
 
-const GENRE_OPTIONS: Array<{ value: GenreFilter; label: string }> = [
-  { value: "", label: "すべて" },
-  { value: "CV", label: "CV" },
-  { value: "SV", label: "SV" },
-  { value: "PV", label: "PV" },
-];
+const GENRE_VALUES: Genre[] = ["CV", "SV", "PV"];
 
 const VIEW_STORAGE_KEY = "catalog-view";
 
@@ -196,13 +198,30 @@ function WorksGroup({
 
 export function IndexPage(): React.JSX.Element {
   const { theme, toggleTheme } = useTheme();
-  const { toast } = useToast();
+  const { toast, showToast } = useToast();
   const appbarRef = useElevatedAppBar();
   const [all, setAll] = useState<NormalizedWork[]>([]);
-  const [query, setQuery] = useState(() => readCatalogParams(window.location.search).query);
-  const [sort, setSort] = useState<SortMode>("date");
-  const [genre, setGenre] = useState<GenreFilter>("");
+  const [filter, setFilter] = useState<CatalogFilter>(() => {
+    const params = readCatalogParams(window.location.search);
+    return {
+      ...emptyCatalogFilter(),
+      query: params.query,
+      genre: params.genre,
+      genres: params.genres,
+      authors: params.authors,
+      performers: params.performers,
+      communities: params.communities,
+      musicTitle: params.musicTitle,
+      musicComposer: params.musicComposer,
+      yearFrom: params.yearFrom,
+      yearTo: params.yearTo,
+    };
+  });
+  const [sort, setSort] = useState<SortMode>(() => readCatalogParams(window.location.search).sort);
   const [view, setView] = useState<ViewMode>(() => readInitialView(window.location.search));
+  const [showAdvanced, setShowAdvanced] = useState(
+    () => countActiveFacets(readCatalogParams(window.location.search) as CatalogFilter) > 0,
+  );
   const [entered, setEntered] = useState(false);
   const enterTimer = useRef<number | null>(null);
 
@@ -212,11 +231,24 @@ export function IndexPage(): React.JSX.Element {
       if (cancelled) return;
       setAll(works);
       const params = readCatalogParams(window.location.search);
+      setFilter({
+        ...emptyCatalogFilter(),
+        query: params.query,
+        genre: params.genre,
+        genres: params.genres,
+        authors: params.authors,
+        performers: params.performers,
+        communities: params.communities,
+        musicTitle: params.musicTitle,
+        musicComposer: params.musicComposer,
+        yearFrom: params.yearFrom,
+        yearTo: params.yearTo,
+      });
       setSort(params.sort);
-      setGenre(params.genre);
       const urlView = new URLSearchParams(window.location.search).get("view");
       const nextView = urlView === "list" || urlView === "grid" ? urlView : readStoredView();
       setView(nextView);
+      setShowAdvanced(countActiveFacets(params as CatalogFilter) > 0);
       setEntered(true);
       if (enterTimer.current !== null) window.clearTimeout(enterTimer.current);
       enterTimer.current = window.setTimeout(() => setEntered(false), 700);
@@ -227,34 +259,59 @@ export function IndexPage(): React.JSX.Element {
     };
   }, []);
 
-  const filtered = useMemo(() => filterAndSortWorks(all, { query, genre }), [all, query, genre]);
+  const filtered = useMemo(() => filterAndSortWorks(all, filter), [all, filter]);
+  const activeFacets = useMemo(() => countActiveFacets(filter), [filter]);
+  const selectedGenres = useMemo(() => effectiveGenres(filter), [filter]);
 
-  const groups = useMemo(() => {
-    if (sort === "date") return [{ name: "すべての作品", works: filtered }];
-    return groupWorks(filtered, SORT_TO_GROUP_FIELD[sort]);
-  }, [filtered, sort]);
+  const authorOptions = useMemo(() => collectFieldOptions(all, "author"), [all]);
+  const performerOptions = useMemo(() => collectFieldOptions(all, "performers"), [all]);
+  const communityOptions = useMemo(() => collectFieldOptions(all, "communities"), [all]);
+  const composerOptions = useMemo(() => collectFieldOptions(all, "composer"), [all]);
+  const yearOptions = useMemo(() => collectAddedYears(all), [all]);
 
+  const patchFilter = (patch: Partial<CatalogFilter>): void => {
+    setFilter((prev) => {
+      const next = { ...prev, ...patch };
+      writeCatalogParams(next, sort, view);
+      return next;
+    });
+  };
   const updateQuery = (next: string): void => {
-    setQuery(next);
-    writeCatalogParams({ query: next, genre }, sort, view);
+    patchFilter({ query: next });
   };
   const updateSort = (next: SortMode): void => {
     setSort(next);
-    writeCatalogParams({ query, genre }, next, view);
+    writeCatalogParams(filter, next, view);
   };
-  const updateGenre = (next: GenreFilter): void => {
-    setGenre(next);
-    writeCatalogParams({ query, genre: next }, sort, view);
+  const toggleGenre = (genre: Genre): void => {
+    const current = effectiveGenres(filter);
+    const next = current.includes(genre) ? current.filter((g) => g !== genre) : [...current, genre];
+    patchFilter({ genres: next, genre: next.length === 1 ? next[0]! : "" });
   };
   const updateView = (next: ViewMode): void => {
     setView(next);
-    writeCatalogParams({ query, genre }, sort, next);
+    writeCatalogParams(filter, sort, next);
     try {
       window.localStorage.setItem(VIEW_STORAGE_KEY, next);
     } catch {
       /* 保存できなくても表示は切り替える */
     }
   };
+  const resetFilters = (): void => {
+    const next = emptyCatalogFilter();
+    setFilter(next);
+    writeCatalogParams(next, sort, view);
+  };
+  const copyShareLink = async (): Promise<void> => {
+    writeCatalogParams(filter, sort, view);
+    const ok = await copyText(window.location.href);
+    showToast(ok ? "検索条件のURLをコピーしました" : "URLのコピーに失敗しました");
+  };
+
+  const groups = useMemo(() => {
+    if (sort === "date") return [{ name: "すべての作品", works: filtered }];
+    return groupWorks(filtered, SORT_TO_GROUP_FIELD[sort]);
+  }, [filtered, sort]);
 
   return (
     <>
@@ -296,7 +353,7 @@ export function IndexPage(): React.JSX.Element {
               id="search-input"
               placeholder="タイトル・作者・楽曲・出演者で検索"
               autoComplete="off"
-              value={query}
+              value={filter.query}
               onChange={(e) => updateQuery(e.target.value)}
             />
           </div>
@@ -312,18 +369,22 @@ export function IndexPage(): React.JSX.Element {
             </span>
           </div>
           <div className="toolbar__genres">
-            <span className="segment" role="group" aria-label="ジャンルで絞り込み">
-              {GENRE_OPTIONS.map((option) => (
-                <button
-                  key={option.label}
-                  className={genre === option.value ? "segment__btn is-active" : "segment__btn"}
-                  type="button"
-                  data-genre={option.value}
-                  onClick={() => updateGenre(option.value)}
-                >
-                  {option.label}
-                </button>
-              ))}
+            <span className="segment" role="group" aria-label="ジャンルで絞り込み（複数選択可）">
+              {GENRE_VALUES.map((value) => {
+                const active = selectedGenres.includes(value);
+                return (
+                  <button
+                    key={value}
+                    className={active ? "segment__btn is-active" : "segment__btn"}
+                    type="button"
+                    data-genre={value}
+                    aria-pressed={active}
+                    onClick={() => toggleGenre(value)}
+                  >
+                    {value}
+                  </button>
+                );
+              })}
             </span>
           </div>
           <div className="toolbar__view">
@@ -353,9 +414,219 @@ export function IndexPage(): React.JSX.Element {
             </span>
           </div>
           <div className="toolbar__count" id="result-count" role="status">
-            {countText(filtered.length, query)}
+            {countText(filtered.length, filter.query, activeFacets)}
           </div>
         </div>
+
+        <div className="toolbar toolbar--advanced-toggle">
+          <button
+            type="button"
+            className="btn btn--tonal btn--small"
+            aria-expanded={showAdvanced}
+            aria-controls="advanced-filters"
+            onClick={() => setShowAdvanced((v) => !v)}
+          >
+            <Icon name="tune" />
+            詳細検索{activeFacets > 0 ? `（${activeFacets}件の条件）` : ""}
+          </button>
+          {activeFacets > 0 && (
+            <button type="button" className="btn btn--text btn--small" onClick={resetFilters}>
+              <Icon name="filter_alt_off" />
+              条件をリセット
+            </button>
+          )}
+          <button
+            type="button"
+            className="btn btn--outlined btn--small"
+            onClick={() => void copyShareLink()}
+            title="現在の検索条件をURLに保存して共有します"
+          >
+            <Icon name="share" />
+            検索条件を共有
+          </button>
+        </div>
+
+        {showAdvanced && (
+          <section
+            id="advanced-filters"
+            className="filters-advanced"
+            aria-label="詳細な絞り込み条件"
+          >
+            <div className="filter-grid">
+              <fieldset className="filter-field">
+                <legend className="type-label-large">ジャンル（複数選択可）</legend>
+                <div className="filter-genres">
+                  {GENRE_VALUES.map((value) => {
+                    const active = selectedGenres.includes(value);
+                    return (
+                      <label key={value} className={active ? "chip chip--fill" : "chip"}>
+                        <input
+                          type="checkbox"
+                          checked={active}
+                          onChange={() => toggleGenre(value)}
+                          aria-label={`ジャンル ${value} で絞り込む`}
+                        />
+                        {value}
+                      </label>
+                    );
+                  })}
+                </div>
+                <p className="field__hint">期間（追加年）と組み合わせて CV・SV・PV を横断検索できます。</p>
+              </fieldset>
+              <fieldset className="filter-field">
+                <legend className="type-label-large">公開年・追加年（追加日基準）</legend>
+                <div className="filter-years">
+                  <label>
+                    開始年
+                    <span className="select">
+                      <select
+                        aria-label="開始年"
+                        value={filter.yearFrom}
+                        onChange={(e) => patchFilter({ yearFrom: e.target.value })}
+                      >
+                        <option value="">指定なし</option>
+                        {yearOptions.map((year) => (
+                          <option key={year} value={year}>
+                            {year}
+                          </option>
+                        ))}
+                      </select>
+                    </span>
+                  </label>
+                  <span aria-hidden="true">〜</span>
+                  <label>
+                    終了年
+                    <span className="select">
+                      <select
+                        aria-label="終了年"
+                        value={filter.yearTo}
+                        onChange={(e) => patchFilter({ yearTo: e.target.value })}
+                      >
+                        <option value="">指定なし</option>
+                        {yearOptions.map((year) => (
+                          <option key={year} value={year}>
+                            {year}
+                          </option>
+                        ))}
+                      </select>
+                    </span>
+                  </label>
+                </div>
+                <p className="field__hint">
+                  作品データに公開日がないため追加日（added）の年で絞り込みます。
+                </p>
+              </fieldset>
+              <div className="filter-field">
+                <label className="type-label-large" htmlFor="filter-authors">
+                  作者（複数可・カンマ区切り）
+                </label>
+                <input
+                  id="filter-authors"
+                  className="field__control"
+                  type="text"
+                  placeholder="例: MEL, futemi."
+                  autoComplete="off"
+                  list="author-suggest"
+                  value={filter.authors.join(", ")}
+                  onChange={(e) => patchFilter({ authors: splitMultiValue(e.target.value) })}
+                />
+                <datalist id="author-suggest">
+                  {authorOptions.map((name) => (
+                    <option key={name} value={name} />
+                  ))}
+                </datalist>
+              </div>
+              <div className="filter-field">
+                <label className="type-label-large" htmlFor="filter-performers">
+                  出演者（複数可・カンマ区切り）
+                </label>
+                <input
+                  id="filter-performers"
+                  className="field__control"
+                  type="text"
+                  placeholder="例: pARu, omoa"
+                  autoComplete="off"
+                  list="performer-suggest"
+                  value={filter.performers.join(", ")}
+                  onChange={(e) => patchFilter({ performers: splitMultiValue(e.target.value) })}
+                />
+                <datalist id="performer-suggest">
+                  {performerOptions.map((name) => (
+                    <option key={name} value={name} />
+                  ))}
+                </datalist>
+              </div>
+              <div className="filter-field">
+                <label className="type-label-large" htmlFor="filter-communities">
+                  コミュニティ（複数可・カンマ区切り）
+                </label>
+                <input
+                  id="filter-communities"
+                  className="field__control"
+                  type="text"
+                  placeholder="例: JEB"
+                  autoComplete="off"
+                  list="community-suggest"
+                  value={filter.communities.join(", ")}
+                  onChange={(e) => patchFilter({ communities: splitMultiValue(e.target.value) })}
+                />
+                <datalist id="community-suggest">
+                  {communityOptions.map((name) => (
+                    <option key={name} value={name} />
+                  ))}
+                </datalist>
+              </div>
+              <div className="filter-field">
+                <label className="type-label-large" htmlFor="filter-music">
+                  楽曲名
+                </label>
+                <input
+                  id="filter-music"
+                  className="field__control"
+                  type="text"
+                  placeholder="例: Finale"
+                  autoComplete="off"
+                  value={filter.musicTitle}
+                  onChange={(e) => patchFilter({ musicTitle: e.target.value })}
+                />
+              </div>
+              <div className="filter-field">
+                <label className="type-label-large" htmlFor="filter-composer">
+                  作曲者
+                </label>
+                <input
+                  id="filter-composer"
+                  className="field__control"
+                  type="text"
+                  placeholder="例: Akiza"
+                  autoComplete="off"
+                  list="composer-suggest"
+                  value={filter.musicComposer}
+                  onChange={(e) => patchFilter({ musicComposer: e.target.value })}
+                />
+                <datalist id="composer-suggest">
+                  {composerOptions.map((name) => (
+                    <option key={name} value={name} />
+                  ))}
+                </datalist>
+              </div>
+            </div>
+            <div className="filter-actions">
+              <button type="button" className="btn btn--text btn--small" onClick={resetFilters}>
+                <Icon name="filter_alt_off" />
+                条件をリセット
+              </button>
+              <button
+                type="button"
+                className="btn btn--tonal btn--small"
+                onClick={() => void copyShareLink()}
+              >
+                <Icon name="link" />
+                検索条件のURLをコピー
+              </button>
+            </div>
+          </section>
+        )}
 
         <div id="list" aria-live="polite" className={entered ? "is-entering" : undefined}>
           {!filtered.length ? (
