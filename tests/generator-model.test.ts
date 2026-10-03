@@ -86,11 +86,10 @@ describe("collectWork", () => {
 });
 
 describe("validateWork / hasIdentity / findDuplicates", () => {
-  it("必須不足を検出する", () => {
+  it("必須不足を検出する（作者は任意）", () => {
     assert.deepEqual(validateWork({ title: "", genre: "", author: "", youtube: "" }), [
       "タイトル",
       "ジャンル",
-      "作者",
       "YouTube URL",
     ]);
     assert.deepEqual(
@@ -99,6 +98,10 @@ describe("validateWork / hasIdentity / findDuplicates", () => {
     );
     assert.deepEqual(
       validateWork({ title: "T", genre: "CV", author: "A", youtube: "https://youtu.be/MQaIQ-U6oSk" }),
+      [],
+    );
+    assert.deepEqual(
+      validateWork({ title: "T", genre: "CV", author: "", youtube: "https://youtu.be/MQaIQ-U6oSk" }),
       [],
     );
   });
